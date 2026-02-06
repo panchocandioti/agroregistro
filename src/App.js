@@ -1,5 +1,7 @@
 import { useState } from "react";
 import CargaCatalogos from "./components/CargaCatalogos";
+import AltaAplicacion from "./components/AltaAplicacion";
+
 
 function App() {
   const [lotes, setLotes] = useState([]);
@@ -23,6 +25,12 @@ function App() {
       <p>Lotes cargados: {lotes.length}</p>
       <p>Insumos cargados: {insumos.length}</p>
       <p>Proveedores cargados: {proveedores.length}</p>
+
+      <hr />
+
+      {lotes.length > 0 && (
+        <AltaAplicacion lotes={lotes} />
+      )}
     </div>
   );
 }

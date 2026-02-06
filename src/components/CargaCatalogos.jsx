@@ -29,6 +29,7 @@ const CargaCatalogos = ({ onCatalogosCargados }) => {
         insumos,
         proveedores,
       });
+
     } catch (err) {
       console.error(err);
       setError("Error al cargar los catálogos. Verificá los archivos.");
