@@ -1,16 +1,15 @@
 {
   "files": {
-    "main.css": "/agroregistro/static/css/main.f855e6bc.css",
-    "main.js": "/agroregistro/static/js/main.bc8cd217.js",
+    "main.css": "/agroregistro/static/css/main.3b71cc2a.css",
+    "main.js": "/agroregistro/static/js/main.480b8a90.js",
     "static/js/453.1ba1db79.chunk.js": "/agroregistro/static/js/453.1ba1db79.chunk.js",
-    "static/media/logo.svg": "/agroregistro/static/media/logo.6ce24c58023cc2f8fd88fe9d219db6c6.svg",
     "index.html": "/agroregistro/index.html",
-    "main.f855e6bc.css.map": "/agroregistro/static/css/main.f855e6bc.css.map",
-    "main.bc8cd217.js.map": "/agroregistro/static/js/main.bc8cd217.js.map",
+    "main.3b71cc2a.css.map": "/agroregistro/static/css/main.3b71cc2a.css.map",
+    "main.480b8a90.js.map": "/agroregistro/static/js/main.480b8a90.js.map",
     "453.1ba1db79.chunk.js.map": "/agroregistro/static/js/453.1ba1db79.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.f855e6bc.css",
-    "static/js/main.bc8cd217.js"
+    "static/css/main.3b71cc2a.css",
+    "static/js/main.480b8a90.js"
   ]
 }
