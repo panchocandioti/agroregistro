@@ -1,23 +1,28 @@
-import logo from './logo.svg';
-import './App.css';
+import { useState } from "react";
+import CargaCatalogos from "./components/CargaCatalogos";
 
 function App() {
+  const [lotes, setLotes] = useState([]);
+  const [insumos, setInsumos] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
+
+  const handleCatalogosCargados = ({ lotes, insumos, proveedores }) => {
+    setLotes(lotes);
+    setInsumos(insumos);
+    setProveedores(proveedores);
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div style={{ padding: "1rem" }}>
+      <h1>AgroRegistro</h1>
+
+      <CargaCatalogos onCatalogosCargados={handleCatalogosCargados} />
+
+      <hr />
+
+      <p>Lotes cargados: {lotes.length}</p>
+      <p>Insumos cargados: {insumos.length}</p>
+      <p>Proveedores cargados: {proveedores.length}</p>
     </div>
   );
 }
