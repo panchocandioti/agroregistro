@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/agroregistro/static/css/main.3b71cc2a.css",
-    "main.js": "/agroregistro/static/js/main.480b8a90.js",
+    "main.js": "/agroregistro/static/js/main.db597f17.js",
     "static/js/453.1ba1db79.chunk.js": "/agroregistro/static/js/453.1ba1db79.chunk.js",
     "index.html": "/agroregistro/index.html",
     "main.3b71cc2a.css.map": "/agroregistro/static/css/main.3b71cc2a.css.map",
-    "main.480b8a90.js.map": "/agroregistro/static/js/main.480b8a90.js.map",
+    "main.db597f17.js.map": "/agroregistro/static/js/main.db597f17.js.map",
     "453.1ba1db79.chunk.js.map": "/agroregistro/static/js/453.1ba1db79.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.3b71cc2a.css",
-    "static/js/main.480b8a90.js"
+    "static/js/main.db597f17.js"
   ]
 }
