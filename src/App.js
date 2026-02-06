@@ -2,7 +2,6 @@ import { useState } from "react";
 import CargaCatalogos from "./components/CargaCatalogos";
 import AltaAplicacion from "./components/AltaAplicacion";
 
-
 function App() {
   const [lotes, setLotes] = useState([]);
   const [insumos, setInsumos] = useState([]);
@@ -29,7 +28,7 @@ function App() {
       <hr />
 
       {lotes.length > 0 && (
-        <AltaAplicacion lotes={lotes} />
+        <AltaAplicacion lotes={lotes} proveedores={proveedores} insumos={insumos} />
       )}
     </div>
   );

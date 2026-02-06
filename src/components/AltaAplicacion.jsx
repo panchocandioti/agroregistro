@@ -1,65 +1,126 @@
 import { useState } from "react";
+import Tratamiento from "./Tratamiento";
+import ResumenAplicacion from "./ResumenAplicacion";
 
-const AltaAplicacion = ({ lotes }) => {
-  const [fechaAplicacion, setFechaAplicacion] = useState("");
-  const [idLote, setIdLote] = useState("");
-  const [superficieHa, setSuperficieHa] = useState("");
+const AltaAplicacion = ({ lotes, proveedores, insumos }) => {
+    const [fechaAplicacion, setFechaAplicacion] = useState("");
+    const [proveedorInsumos, setProveedorInsumos] = useState("");
+    const [proveedorServicios, setProveedorServicios] = useState("");
 
-  const loteSeleccionado = lotes.find(
-    (l) => l.id_lote === idLote
-  );
 
-  const handleLoteChange = (e) => {
-    const selectedId = e.target.value;
-    setIdLote(selectedId);
+    const [tratamientos, setTratamientos] = useState([
+        { lotes: [], insumos: [], observaciones: "" }
+    ]);
 
-    const lote = lotes.find((l) => l.id_lote === selectedId);
-    setSuperficieHa(lote ? lote.superficie_ha : "");
-  };
+    const agregarTratamiento = () => {
+        setTratamientos(prev => [
+            ...prev,
+            { lotes: [] }
+        ]);
+    };
 
-  return (
-    <div style={{ border: "1px solid #ccc", padding: "1rem", marginTop: "1rem" }}>
-      <h2>Nueva aplicación</h2>
+    const quitarTratamiento = index => {
+        setTratamientos(prev =>
+            prev.filter((_, i) => i !== index)
+        );
+    };
 
-      {/* Fecha */}
-      <div>
-        <label>Fecha de aplicación</label><br />
-        <input
-          type="date"
-          value={fechaAplicacion}
-          onChange={(e) => setFechaAplicacion(e.target.value)}
-        />
-      </div>
+    return (
+        <div style={{ border: "1px solid #ccc", padding: "1rem", marginTop: "1rem" }}>
 
-      {/* Lote */}
-      <div style={{ marginTop: "0.5rem" }}>
-        <label>Lote</label><br />
-        <select value={idLote} onChange={handleLoteChange}>
-          <option value="">Seleccionar lote</option>
-          {lotes
-            .filter(l => l.activo)
-            .map((lote) => (
-              <option key={lote.id_lote} value={lote.id_lote}>
-                {lote.nombre_lote}
-              </option>
-            ))}
-        </select>
-      </div>
+            <div style={{ border: "2px solid #999", padding: "1rem", marginBottom: "1.5rem" }}>
+                <h3>Datos de la aplicación</h3>
 
-      {/* Superficie */}
-      <div style={{ marginTop: "0.5rem" }}>
-        <label>Superficie (ha)</label><br />
-        <input type="number" value={superficieHa} disabled />
-      </div>
+                <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
 
-      {/* Debug visual */}
-      {loteSeleccionado && (
-        <p style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "#555" }}>
-          Cultivo: {loteSeleccionado.cultivo}
-        </p>
-      )}
-    </div>
-  );
+                    {/* Fecha */}
+                    <div>
+                        <label>Fecha</label><br />
+                        <input
+                            type="date"
+                            value={fechaAplicacion}
+                            onChange={e => setFechaAplicacion(e.target.value)}
+                        />
+                    </div>
+
+                    {/* Proveedor insumos */}
+                    <div>
+                        <label>Proveedor de insumos</label><br />
+                        <select
+                            value={proveedorInsumos}
+                            onChange={e => setProveedorInsumos(e.target.value)}
+                        >
+                            <option value="">Seleccionar</option>
+                            {proveedores.map(p => (
+                                <option key={p.id_proveedor} value={p.id_proveedor}>
+                                    {p.nombre_proveedor}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Proveedor servicios */}
+                    <div>
+                        <label>Proveedor de servicios</label><br />
+                        <select
+                            value={proveedorServicios}
+                            onChange={e => setProveedorServicios(e.target.value)}
+                        >
+                            <option value="">Seleccionar</option>
+                            {proveedores.map(p => (
+                                <option key={p.id_proveedor} value={p.id_proveedor}>
+                                    {p.nombre_proveedor}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                </div>
+            </div>
+
+            {fechaAplicacion && proveedorInsumos && proveedorServicios && (<div>
+                <h3>Tratamientos</h3>
+
+                {tratamientos.map((tratamiento, index) => (
+                    <div key={index}>
+                        <Tratamiento
+                            key={index}
+                            numero={index + 1}
+                            tratamiento={tratamiento}
+                            setTratamiento={fn =>
+                                setTratamientos(prev =>
+                                    prev.map((t, i) =>
+                                        i === index ? fn(t) : t
+                                    )
+                                )
+                            }
+                            lotes={lotes}
+                            insumos={insumos}
+                        />
+
+                        {tratamientos.length > 1 && (
+                            <button onClick={() => quitarTratamiento(index)}>
+                                Quitar tratamiento
+                            </button>
+                        )}
+                    </div>
+                ))}
+
+                <button onClick={agregarTratamiento}>
+                    Agregar otro tratamiento
+                </button>
+            </div>)}
+
+            <ResumenAplicacion
+                fechaAplicacion={fechaAplicacion}
+                proveedorServiciosId={proveedorServicios}
+                proveedorInsumosId={proveedorInsumos}
+                proveedores={proveedores}
+                tratamientos={tratamientos}
+            />
+
+        </div>
+    );
 };
 
 export default AltaAplicacion;
