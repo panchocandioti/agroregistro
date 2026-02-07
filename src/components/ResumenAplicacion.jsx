@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { exportResumenAplicacionPDF } from "../services/pdfResumenAplicacion";
 
 const toNum = (v) => {
     const n = parseFloat(v);
@@ -151,6 +152,23 @@ function ResumenAplicacion({
                     </tbody>
                 </table>
             </div>
+            <hr />
+            <button
+                type="button"
+                className="btn btn-outline-danger text-end"
+                onClick={() =>
+                    exportResumenAplicacionPDF({
+                        fechaAplicacion,
+                        proveedorServiciosId: provServ?.id_proveedor,
+                        proveedorInsumosId: provIns?.id_proveedor,
+                        proveedores,
+                        tratamientos,
+                        nombreArchivo: `resumen_aplicacion_${fechaAplicacion}.pdf`,
+                    })
+                }
+            >
+                Exportar resumen (PDF)
+            </button>
         </div>
     );
 }

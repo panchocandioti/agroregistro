@@ -7,6 +7,7 @@ import HistoricoAplicaciones from "./components/HistoricoAplicaciones";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
 import { exportPendienteCargaPorAplicacionXlsx } from "./services/pendienteCarga";
+import logo from "./multimedia/Logo_AgroRegistro.png";
 
 function App() {
   const [lotes, setLotes] = useState([]);
@@ -130,8 +131,20 @@ function App() {
 
   return (
     <div className="App" style={{ padding: "1rem" }}>
-      <h1>AgroRegistro</h1>
-      <p><i>Registro de aplicaciones agrícolas</i></p>
+      <div style={{
+        padding: "20px", display: "flex", flexDirection: "row", justifyContent: "left",
+        border: "solid 5px darkblue", borderRadius: "10px"
+      }}>
+        <div style={{ alignContent: "center" }}>
+          <h1>AgroRegistro</h1>
+          <p><i>Registro de aplicaciones agrícolas</i></p>
+        </div>
+        <div>
+          <img src={logo} style={{ width: "110px", marginLeft: "20px" }} />
+        </div>
+      </div>
+
+      <hr />
 
       <input
         type="file"
