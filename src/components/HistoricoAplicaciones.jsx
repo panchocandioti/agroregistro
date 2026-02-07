@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { formatFecha, aplanarAplicaciones, filtrar } from "../services/historicoService";
 import ResumenAplicacion from "./ResumenAplicacion";
+import AltaAplicacion from "./AltaAplicacion";
 
-export default function HistoricoAplicaciones({ historico, lotes, insumos, proveedores }) {
+export default function HistoricoAplicaciones({ historico, lotes, insumos, proveedores, onBorrarAplicacion,
+  onEditarAplicacion }) {
   const [filtros, setFiltros] = useState({
     fechaDesde: "",
     fechaHasta: "",
@@ -14,6 +16,8 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
   });
 
   const [idAplicacionSeleccionada, setIdAplicacionSeleccionada] = useState(null);
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [borrador, setBorrador] = useState(null); // copia editable
 
   // índices para resolver nombres rápido
   const idxLotes = useMemo(() => new Map((lotes ?? []).map((l) => [l.id_lote, l])), [lotes]);
@@ -157,6 +161,8 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
       (a) => a.id_aplicacion === idAplicacionSeleccionada
     ) || null;
   }, [historico, idAplicacionSeleccionada]);
+
+  const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 
   return (
     <div className="container-fluid p-0">
@@ -376,29 +382,69 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
         {aplicacionSeleccionada && (
           <div className="card mt-3">
             <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
+              <div className="d-flex gap-2">
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-primary"
+                  onClick={() => {
+                    const copia = (typeof structuredClone === "function")
+                      ? structuredClone(aplicacionSeleccionada)
+                      : deepClone(aplicacionSeleccionada);
+
+                    setBorrador(copia);
+                    setModoEdicion(true);
+                  }}
+                >
+                  Editar
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-danger"
+                  onClick={() => {
+                    onBorrarAplicacion(aplicacionSeleccionada.id_aplicacion);
+                    setIdAplicacionSeleccionada(null);
+                  }}
+                >
+                  Borrar
+                </button>
+
+
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
                   onClick={() => setIdAplicacionSeleccionada(null)}
                 >
-                  Cerrar resumen
+                  Cerrar
                 </button>
               </div>
 
               <hr />
 
-              <ResumenAplicacion
+              {!modoEdicion ? (<ResumenAplicacion
                 fechaAplicacion={aplicacionSeleccionada.fecha_aplicacion}
                 proveedorServiciosId={aplicacionSeleccionada.id_prov_serv}
                 proveedorInsumosId={aplicacionSeleccionada.id_prov_ins}
                 proveedores={proveedores}
                 tratamientos={aplicacionSeleccionada.tratamientos}
-              />
-
+              />) : (
+                <AltaAplicacion
+                  modo="edicion"
+                  aplicacionInicial={aplicacionSeleccionada}
+                  lotes={lotes}
+                  insumos={insumos}
+                  proveedores={proveedores}
+                  onConfirmar={(apEditada) => {
+                    onEditarAplicacion(apEditada);
+                    setModoEdicion(false);
+                  }}
+                  onCancelar={() => setModoEdicion(false)}
+                />
+              )}
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

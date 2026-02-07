@@ -37,6 +37,38 @@ function App() {
     setMostrarHistorico(!mostrarHistorico);
   }
 
+  const onBorrarAplicacion = (id_aplicacion) => {
+    const ok = window.confirm("¿Borrar esta aplicación del histórico? Esta acción no se puede deshacer.");
+    if (!ok) return;
+
+    const aplicacionesPrev = Array.isArray(historico?.aplicaciones) ? historico.aplicaciones : [];
+
+    const nuevoHistorico = {
+      ...historico,
+      updated_at: new Date().toISOString(),
+      aplicaciones: aplicacionesPrev.filter((a) => a.id_aplicacion !== id_aplicacion),
+    };
+
+    setHistorico(nuevoHistorico);
+    downloadJson(nuevoHistorico, "historico_agroregistro.json");
+  };
+
+  const onEditarAplicacion = (aplicacionEditada) => {
+    const aplicacionesPrev = Array.isArray(historico?.aplicaciones) ? historico.aplicaciones : [];
+
+    const nuevoHistorico = {
+      ...historico,
+      updated_at: new Date().toISOString(),
+      aplicaciones: aplicacionesPrev.map((a) =>
+        a.id_aplicacion === aplicacionEditada.id_aplicacion ? aplicacionEditada : a
+      ),
+    };
+
+    setHistorico(nuevoHistorico);
+    downloadJson(nuevoHistorico, "historico_agroregistro.json");
+  };
+
+
   return (
     <div className="App" style={{ padding: "1rem" }}>
       <h1>AgroRegistro</h1>
@@ -96,6 +128,8 @@ function App() {
         lotes={lotes}
         proveedores={proveedores}
         insumos={insumos}
+        onBorrarAplicacion={onBorrarAplicacion}
+        onEditarAplicacion={onEditarAplicacion}
       />)}
 
     </div>
