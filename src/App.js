@@ -6,6 +6,7 @@ import { downloadJson } from "./utils/downloadJson";
 import HistoricoAplicaciones from "./components/HistoricoAplicaciones";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
+import { exportPendienteCargaPorAplicacionXlsx } from "./services/pendienteCarga";
 
 function App() {
   const [lotes, setLotes] = useState([]);
@@ -21,7 +22,9 @@ function App() {
   };
 
   const onGuardarAplicacion = (aplicacionNueva) => {
-    const aplicacionesPrev = Array.isArray(historico?.aplicaciones) ? historico.aplicaciones : [];
+    const aplicacionesPrev = Array.isArray(historico?.aplicaciones)
+      ? historico.aplicaciones
+      : [];
 
     const nuevoHistorico = {
       version: 1,
@@ -29,8 +32,35 @@ function App() {
       aplicaciones: [aplicacionNueva, ...aplicacionesPrev],
     };
 
+    // 1️⃣ Actualiza estado
     setHistorico(nuevoHistorico);
+
+    // 2️⃣ Descarga JSON actualizado
     downloadJson(nuevoHistorico, "historico_agroregistro.json");
+
+    // 3️⃣ Genera Excel pendiente de carga (por esa aplicación)
+    const proveedoresIndex = new Map(
+      proveedores.map((p) => [p.id_proveedor, p])
+    );
+
+    const insumosIndex = new Map(
+      insumos.map((i) => [i.id_insumo, i])
+    );
+
+    const lotesIndex = new Map(
+      lotes.map((l) => [l.id_lote, l])
+    );
+
+    exportPendienteCargaPorAplicacionXlsx({
+      aplicacion: aplicacionNueva,
+      lotesIndex,
+      insumosIndex,
+      proveedoresIndex,
+      nombreArchivo: `pendiente_${aplicacionNueva.fecha_aplicacion}_${aplicacionNueva.id_aplicacion}.xlsx`,
+    });
+    setTimeout(() => {
+      alert("Aplicación guardada ✅ Se descargaron histórico + pendiente de carga");
+    }, 200);
   };
 
   const handleMostrarHistorico = () => {
@@ -54,20 +84,49 @@ function App() {
   };
 
   const onEditarAplicacion = (aplicacionEditada) => {
-    const aplicacionesPrev = Array.isArray(historico?.aplicaciones) ? historico.aplicaciones : [];
+    const aplicacionesPrev = Array.isArray(historico?.aplicaciones)
+      ? historico.aplicaciones
+      : [];
 
     const nuevoHistorico = {
       ...historico,
       updated_at: new Date().toISOString(),
       aplicaciones: aplicacionesPrev.map((a) =>
-        a.id_aplicacion === aplicacionEditada.id_aplicacion ? aplicacionEditada : a
+        a.id_aplicacion === aplicacionEditada.id_aplicacion
+          ? aplicacionEditada
+          : a
       ),
     };
 
     setHistorico(nuevoHistorico);
-    downloadJson(nuevoHistorico, "historico_agroregistro.json");
-  };
 
+    // 1️⃣ descarga JSON actualizado
+    downloadJson(nuevoHistorico, "historico_agroregistro.json");
+
+    // 2️⃣ genera nuevamente pendiente de carga
+    const proveedoresIndex = new Map(
+      proveedores.map((p) => [p.id_proveedor, p])
+    );
+
+    const insumosIndex = new Map(
+      insumos.map((i) => [i.id_insumo, i])
+    );
+
+    const lotesIndex = new Map(
+      lotes.map((l) => [l.id_lote, l])
+    );
+
+    exportPendienteCargaPorAplicacionXlsx({
+      aplicacion: aplicacionEditada,
+      lotesIndex,
+      insumosIndex,
+      proveedoresIndex,
+      nombreArchivo: `pendiente_EDITADO_${aplicacionEditada.fecha_aplicacion}_${aplicacionEditada.id_aplicacion}.xlsx`,
+    });
+    setTimeout(() => {
+      alert("Cambios guardados ✅ Se descargaron histórico + pendiente de carga");
+    }, 200);
+  };
 
   return (
     <div className="App" style={{ padding: "1rem" }}>

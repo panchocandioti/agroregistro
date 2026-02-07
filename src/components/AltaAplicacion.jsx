@@ -87,14 +87,12 @@ function AltaAplicacion({
         if (typeof cb === "function") cb(aplicacion);
 
         if (modo === "edicion") {
-            alert("Cambios guardados y archivo actualizado descargado ✅");
-            // cerrar editor si lo estás usando desde histórico
+            // cerrar editor
             if (typeof onCancelar === "function") onCancelar();
             return;
         }
 
-        // modo alta (como hoy)
-        alert("Aplicación guardada y archivo actualizado descargado ✅");
+        // modo alta
         setFechaAplicacion("");
         setProveedorInsumos("");
         setProveedorServicios("");
