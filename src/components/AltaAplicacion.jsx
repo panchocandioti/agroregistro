@@ -155,10 +155,11 @@ function AltaAplicacion({ lotes, insumos, proveedores, onGuardarAplicacion }) {
                 tratamientos={tratamientos}
             />)}
 
-            {mostrarResumenAplicacion && (
-                <button type="button" onClick={confirmarGuardar}>
+            {mostrarResumenAplicacion && tratamientos[0].lotes.length > 0 && tratamientos[0].insumos.length > 0 && (<div className="text-end">
+                <button type="button" onClick={confirmarGuardar} className="btn btn-success">
                     Guardar aplicación
                 </button>
+            </div>
 
             )}
 

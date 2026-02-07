@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { aplanarAplicaciones, filtrar } from "../services/historicoService";
+import { formatFecha, aplanarAplicaciones, filtrar } from "../services/historicoService";
+import ResumenAplicacion from "./ResumenAplicacion";
 
 export default function HistoricoAplicaciones({ historico, lotes, insumos, proveedores }) {
   const [filtros, setFiltros] = useState({
@@ -11,6 +12,8 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
     id_prov_ins: "todos",
     texto: "",
   });
+
+  const [idAplicacionSeleccionada, setIdAplicacionSeleccionada] = useState(null);
 
   // índices para resolver nombres rápido
   const idxLotes = useMemo(() => new Map((lotes ?? []).map((l) => [l.id_lote, l])), [lotes]);
@@ -31,11 +34,63 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
 
   // opciones de filtros desde catálogos (mejor que desde histórico)
   const opciones = useMemo(() => {
-    const lotesOpc = (lotes ?? []).slice().sort((a, b) => (a.nombre_lote ?? "").localeCompare(b.nombre_lote ?? "", "es"));
-    const insumosOpc = (insumos ?? []).slice().sort((a, b) => (a.nombre_insumo ?? "").localeCompare(b.nombre_insumo ?? "", "es"));
-    const provOpc = (proveedores ?? []).slice().sort((a, b) => (a.nombre_proveedor ?? "").localeCompare(b.nombre_proveedor ?? "", "es"));
-    return { lotesOpc, insumosOpc, provOpc };
-  }, [lotes, insumos, proveedores]);
+    // ===== Lotes presentes en el histórico =====
+    const lotesMap = new Map();
+    registros.forEach((r) => {
+      (r.lotes ?? []).forEach((l) => {
+        if (!l?.id_lote) return;
+        if (!lotesMap.has(l.id_lote)) {
+          const cat = idxLotes.get(l.id_lote);
+          lotesMap.set(l.id_lote, {
+            id_lote: l.id_lote,
+            nombre_lote: cat?.nombre_lote ?? l.nombre_lote ?? l.id_lote,
+          });
+        }
+      });
+    });
+    const lotesOpc = Array.from(lotesMap.values()).sort((a, b) =>
+      (a.nombre_lote ?? "").localeCompare(b.nombre_lote ?? "", "es")
+    );
+
+    // ===== Insumos presentes en el histórico =====
+    const insumosMap = new Map();
+    registros.forEach((r) => {
+      (r.insumos ?? []).forEach((i) => {
+        if (!i?.id_insumo) return;
+        if (!insumosMap.has(i.id_insumo)) {
+          const cat = idxInsumos.get(i.id_insumo);
+          insumosMap.set(i.id_insumo, {
+            id_insumo: i.id_insumo,
+            nombre_insumo: cat?.nombre_insumo ?? i.nombre_insumo ?? i.id_insumo,
+          });
+        }
+      });
+    });
+    const insumosOpc = Array.from(insumosMap.values()).sort((a, b) =>
+      (a.nombre_insumo ?? "").localeCompare(b.nombre_insumo ?? "", "es")
+    );
+
+    // ===== Proveedores presentes (servicio e insumos) =====
+    const provServSet = new Set(registros.map((r) => r.id_prov_serv).filter(Boolean));
+    const provInsSet = new Set(registros.map((r) => r.id_prov_ins).filter(Boolean));
+
+    const provServOpc = Array.from(provServSet)
+      .map((id) => ({
+        id_proveedor: id,
+        nombre_proveedor: idxProveedores.get(id)?.nombre_proveedor ?? id,
+      }))
+      .sort((a, b) => (a.nombre_proveedor ?? "").localeCompare(b.nombre_proveedor ?? "", "es"));
+
+    const provInsOpc = Array.from(provInsSet)
+      .map((id) => ({
+        id_proveedor: id,
+        nombre_proveedor: idxProveedores.get(id)?.nombre_proveedor ?? id,
+      }))
+      .sort((a, b) => (a.nombre_proveedor ?? "").localeCompare(b.nombre_proveedor ?? "", "es"));
+
+    return { lotesOpc, insumosOpc, provServOpc, provInsOpc };
+  }, [registros, idxLotes, idxInsumos, idxProveedores]);
+
 
   const resultados = useMemo(() => {
     // si querés “lo más nuevo arriba”
@@ -55,9 +110,57 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
     });
   };
 
+  const totalHectareas = useMemo(() => {
+    return resultados.reduce((total, r) => {
+      const sumaLotes = (r.lotes ?? []).reduce((acc, lote) => {
+        const sup = Number(lote.superficie) || 0;
+        return acc + sup;
+      }, 0);
+
+      return total + sumaLotes;
+    }, 0);
+  }, [resultados]);
+
+  const resumenInsumoSeleccionado = useMemo(() => {
+    if (filtros.id_insumo === "todos") return null;
+
+    const id = filtros.id_insumo;
+
+    // nombre desde catálogo (ajustá según tu helper actual)
+    const nombre = idxInsumos.get(id)?.nombre_insumo ?? id;
+
+    let total = 0;
+    let unidadTotal = ""; // Litros, Kg, etc. (tomamos la última encontrada)
+
+    for (const r of resultados) {
+      const item = (r.insumos ?? []).find((i) => i.id_insumo === id);
+      if (!item) continue;
+
+      total += parseFloat(item.cantidad_total) || 0;
+      unidadTotal = item.unidad_total || unidadTotal;
+    }
+
+    const dosisMedia = totalHectareas > 0 ? total / totalHectareas : 0;
+
+    return {
+      id,
+      nombre,
+      total,
+      unidadTotal,
+      dosisMedia,
+    };
+  }, [filtros.id_insumo, resultados, totalHectareas, idxInsumos]);
+
+  const aplicacionSeleccionada = useMemo(() => {
+    if (!idAplicacionSeleccionada) return null;
+    return (historico?.aplicaciones ?? []).find(
+      (a) => a.id_aplicacion === idAplicacionSeleccionada
+    ) || null;
+  }, [historico, idAplicacionSeleccionada]);
+
   return (
     <div className="container-fluid p-0">
-      <div className="card mb-3">
+      {!aplicacionSeleccionada && (<div className="card mb-3">
         <div className="card-body">
           <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
             <h5 className="m-0">Histórico de aplicaciones</h5>
@@ -70,7 +173,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
 
           <div className="row g-2">
             <div className="col-12 col-md-3">
-              <label className="form-label">Fecha desde</label>
+              <label className="form-label"><b>Fecha desde</b></label>
               <input
                 type="date"
                 className="form-control"
@@ -80,7 +183,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
             </div>
 
             <div className="col-12 col-md-3">
-              <label className="form-label">Fecha hasta</label>
+              <label className="form-label"><b>Fecha hasta</b></label>
               <input
                 type="date"
                 className="form-control"
@@ -90,7 +193,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
             </div>
 
             <div className="col-12 col-md-3">
-              <label className="form-label">Lote</label>
+              <label className="form-label"><b>Lote</b></label>
               <select
                 className="form-select"
                 value={filtros.id_lote}
@@ -106,7 +209,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
             </div>
 
             <div className="col-12 col-md-3">
-              <label className="form-label">Insumo</label>
+              <label className="form-label"><b>Insumo</b></label>
               <select
                 className="form-select"
                 value={filtros.id_insumo}
@@ -122,14 +225,14 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
             </div>
 
             <div className="col-12 col-md-3">
-              <label className="form-label">Proveedor de servicio</label>
+              <label className="form-label"><b>Proveedor de servicio</b></label>
               <select
                 className="form-select"
                 value={filtros.id_prov_serv}
                 onChange={(e) => setFiltros((f) => ({ ...f, id_prov_serv: e.target.value }))}
               >
                 <option value="todos">Todos</option>
-                {opciones.provOpc.map((p) => (
+                {opciones.provServOpc.map((p) => (
                   <option key={p.id_proveedor} value={p.id_proveedor}>
                     {p.nombre_proveedor} ({p.id_proveedor})
                   </option>
@@ -138,23 +241,24 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
             </div>
 
             <div className="col-12 col-md-3">
-              <label className="form-label">Proveedor de insumos</label>
+              <label className="form-label"><b>Proveedor de insumos</b></label>
               <select
                 className="form-select"
                 value={filtros.id_prov_ins}
                 onChange={(e) => setFiltros((f) => ({ ...f, id_prov_ins: e.target.value }))}
               >
                 <option value="todos">Todos</option>
-                {opciones.provOpc.map((p) => (
+                {opciones.provInsOpc.map((p) => (
                   <option key={p.id_proveedor} value={p.id_proveedor}>
                     {p.nombre_proveedor} ({p.id_proveedor})
                   </option>
                 ))}
+
               </select>
             </div>
 
             <div className="col-12 col-md-4">
-              <label className="form-label">Buscar (obs / nombres)</label>
+              <label className="form-label"><b>Buscar (obs / nombres)</b></label>
               <input
                 type="text"
                 className="form-control"
@@ -171,10 +275,10 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
             </div>
           </div>
         </div>
-      </div>
+      </div>)}
 
       <div className="card">
-        <div className="card-body">
+        {!aplicacionSeleccionada && (<div className="card-body">
           {resultados.length === 0 ? (
             <div className="alert alert-warning m-0">No hay resultados con esos filtros.</div>
           ) : (
@@ -188,12 +292,13 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                     <th>Prov. Serv.</th>
                     <th>Prov. Ins.</th>
                     <th>Obs.</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {resultados.map((r) => (
                     <tr key={`${r.id_aplicacion}_${r.idx_tratamiento}`}>
-                      <td style={{ whiteSpace: "nowrap" }}>{r.fecha}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>{formatFecha(r.fecha)}</td>
 
                       <td>
                         {(r.lotes ?? []).map((l) => (
@@ -229,13 +334,71 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                       </td>
 
                       <td>{r.observaciones}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => setIdAplicacionSeleccionada(r.id_aplicacion)}
+                        >
+                          Ver resumen
+                        </button>
+                      </td>
+
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
+          <div className="mt-3 text-end fw-bold">
+            <h5 style={{ color: "red" }}><strong>Total hectáreas: {totalHectareas.toFixed(1)} ha</strong></h5>
+            <div className="mt-3 d-flex justify-content-end">
+              <div className="text-end">
+                {resumenInsumoSeleccionado && (
+                  <>
+                    <div className="mt-2">
+                      <span className="fw-bold">{resumenInsumoSeleccionado.nombre}</span>:{" "}
+                      {resumenInsumoSeleccionado.total.toFixed(1)}{" "}
+                      {resumenInsumoSeleccionado.unidadTotal || ""}
+                    </div>
+                    <div className="text-muted">
+                      Dosis media: {resumenInsumoSeleccionado.dosisMedia.toFixed(2)}{" "}
+                      {resumenInsumoSeleccionado.unidadTotal
+                        ? `${resumenInsumoSeleccionado.unidadTotal}/ha`
+                        : "/ha"}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>)}
+        {aplicacionSeleccionada && (
+          <div className="card mt-3">
+            <div className="card-body">
+              <div className="d-flex justify-content-between align-items-center">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => setIdAplicacionSeleccionada(null)}
+                >
+                  Cerrar resumen
+                </button>
+              </div>
+
+              <hr />
+
+              <ResumenAplicacion
+                fechaAplicacion={aplicacionSeleccionada.fecha_aplicacion}
+                proveedorServiciosId={aplicacionSeleccionada.id_prov_serv}
+                proveedorInsumosId={aplicacionSeleccionada.id_prov_ins}
+                proveedores={proveedores}
+                tratamientos={aplicacionSeleccionada.tratamientos}
+              />
+
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

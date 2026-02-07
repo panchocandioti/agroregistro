@@ -4,6 +4,12 @@ export const parseYMD = (ymd) => {
     return new Date(y, m - 1, d);
 };
 
+export const formatFecha = (ymd) => {
+  if (!ymd) return "";
+  const [y, m, d] = ymd.split("-");
+  return `${d}/${m}/${y}`;
+};
+
 export const aplanarAplicaciones = (historico) => {
     const apps = historico?.aplicaciones ?? [];
     const out = [];

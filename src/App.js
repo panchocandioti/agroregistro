@@ -4,6 +4,8 @@ import AltaAplicacion from "./components/AltaAplicacion";
 import { readJsonFile } from "./utils/readJsonFile";
 import { downloadJson } from "./utils/downloadJson";
 import HistoricoAplicaciones from "./components/HistoricoAplicaciones";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "./App.css";
 
 function App() {
   const [lotes, setLotes] = useState([]);
@@ -85,7 +87,7 @@ function App() {
         )}
       </div>)}
 
-      <button onClick={handleMostrarHistorico}>
+      <button onClick={handleMostrarHistorico} className="btn btn-info" id="historico">
         {mostrarHistorico ? "Ocultar registro de aplicaciones" : "Consultar registro de aplicaciones"}
       </button>
 
