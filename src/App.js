@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import CargaCatalogos from "./components/CargaCatalogos";
 import AltaAplicacion from "./components/AltaAplicacion";
 import { readJsonFile } from "./utils/readJsonFile";
