@@ -2,11 +2,12 @@ import { useState } from "react";
 import Tratamiento from "./Tratamiento";
 import ResumenAplicacion from "./ResumenAplicacion";
 
-const AltaAplicacion = ({ lotes, proveedores, insumos }) => {
+function AltaAplicacion({ lotes, insumos, proveedores, onGuardarAplicacion }) {
     const [fechaAplicacion, setFechaAplicacion] = useState("");
     const [proveedorInsumos, setProveedorInsumos] = useState("");
     const [proveedorServicios, setProveedorServicios] = useState("");
 
+    const [mostrarResumenAplicacion, setMostrarResumenAplicacion] = useState(false);
 
     const [tratamientos, setTratamientos] = useState([
         { lotes: [], insumos: [], observaciones: "" }
@@ -24,6 +25,35 @@ const AltaAplicacion = ({ lotes, proveedores, insumos }) => {
             prev.filter((_, i) => i !== index)
         );
     };
+
+    const handleMostrarResumen = () => {
+        setMostrarResumenAplicacion(!mostrarResumenAplicacion);
+    };
+
+    const confirmarGuardar = () => {
+        const now = new Date().toISOString();
+        const id = `${now}_${Math.random().toString(16).slice(2, 8)}`;
+
+        const aplicacionNueva = {
+            id_aplicacion: id,
+            created_at: now,
+            fecha_aplicacion: fechaAplicacion,
+            id_prov_serv: proveedorServicios,
+            id_prov_ins: proveedorInsumos,
+            tratamientos,
+        };
+
+        onGuardarAplicacion(aplicacionNueva);
+
+        alert("Aplicación guardada y archivo actualizado descargado ✅");
+
+        setFechaAplicacion("");
+        setProveedorInsumos("");
+        setProveedorServicios("");
+        setTratamientos([{ lotes: [], insumos: [], observaciones: "" }]);
+        handleMostrarResumen();
+    };
+
 
     return (
         <div style={{ border: "1px solid #ccc", padding: "1rem", marginTop: "1rem" }}>
@@ -111,13 +141,26 @@ const AltaAplicacion = ({ lotes, proveedores, insumos }) => {
                 </button>
             </div>)}
 
-            <ResumenAplicacion
+            <hr />
+
+            <button onClick={handleMostrarResumen}>
+                {mostrarResumenAplicacion ? "Ocultar resumen aplicación" : "Mostrar resumen aplicación"}
+            </button>
+
+            {mostrarResumenAplicacion && (<ResumenAplicacion
                 fechaAplicacion={fechaAplicacion}
                 proveedorServiciosId={proveedorServicios}
                 proveedorInsumosId={proveedorInsumos}
                 proveedores={proveedores}
                 tratamientos={tratamientos}
-            />
+            />)}
+
+            {mostrarResumenAplicacion && (
+                <button type="button" onClick={confirmarGuardar}>
+                    Guardar aplicación
+                </button>
+
+            )}
 
         </div>
     );

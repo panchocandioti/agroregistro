@@ -65,7 +65,7 @@ function ResumenAplicacion({
 
                 return (
                     <div key={idx} style={{ borderTop: "1px solid #ddd", paddingTop: "1rem", marginTop: "1rem" }}>
-                        <h4>Tratamiento {idx + 1} — {supTrat.toFixed(2)} ha</h4>
+                        <h5>Tratamiento {idx + 1} — {supTrat.toFixed(2)} ha</h5>
 
                         {t.observaciones && (
                             <p style={{ marginTop: "0.25rem" }}>
@@ -102,9 +102,9 @@ function ResumenAplicacion({
                                     <thead>
                                         <tr>
                                             <th style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>Insumo</th>
-                                            <th style={{ textAlign: "right", borderBottom: "1px solid #ccc" }}>Dosis</th>
+                                            <th style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>Dosis</th>
                                             <th style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>Unidad</th>
-                                            <th style={{ textAlign: "right", borderBottom: "1px solid #ccc" }}>Total</th>
+                                            <th style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>Total</th>
                                             <th style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>Unidad</th>
                                         </tr>
                                     </thead>
@@ -112,9 +112,9 @@ function ResumenAplicacion({
                                         {(t.insumos || []).map((ins) => (
                                             <tr key={ins.id_insumo}>
                                                 <td>{ins.nombre_insumo}</td>
-                                                <td style={{ textAlign: "right" }}>{toNum(ins.dosis).toFixed(3) || ""}</td>
+                                                <td style={{ textAlign: "left" }}>{toNum(ins.dosis).toFixed(3) || ""}</td>
                                                 <td>{ins.unidad_dosis || ""}</td>
-                                                <td style={{ textAlign: "right" }}>{toNum(ins.cantidad_total).toFixed(2)}</td>
+                                                <td style={{ textAlign: "left" }}>{toNum(ins.cantidad_total).toFixed(2)}</td>
                                                 <td>{ins.unidad_total || ""}</td>
                                             </tr>
                                         ))}
@@ -128,15 +128,15 @@ function ResumenAplicacion({
 
             {/* Totales */}
             <div style={{ borderTop: "2px solid #999", marginTop: "1rem", paddingTop: "1rem" }}>
-                <h4>Totales</h4>
-                <p><strong>Superficie total aplicada:</strong> {superficieTotalAplicacion.toFixed(2)} ha</p>
+                <h4>TOTALES</h4>
+                <h5><strong>Superficie total aplicada:</strong> {superficieTotalAplicacion.toFixed(2)} ha</h5>
 
-                <strong>Totales por insumo</strong>
+                <h5><strong>Totales por insumo</strong></h5>
                 <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "0.5rem" }}>
                     <thead>
                         <tr>
                             <th style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>Insumo</th>
-                            <th style={{ textAlign: "right", borderBottom: "1px solid #ccc" }}>Cantidad total</th>
+                            <th style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>Cantidad total</th>
                             <th style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>Unidad</th>
                         </tr>
                     </thead>
@@ -144,7 +144,7 @@ function ResumenAplicacion({
                         {totalesPorInsumo.map((x) => (
                             <tr key={x.id_insumo}>
                                 <td>{x.nombre_insumo}</td>
-                                <td style={{ textAlign: "right" }}>{toNum(x.cantidad_total).toFixed(2)}</td>
+                                <td style={{ textAlign: "left" }}>{toNum(x.cantidad_total).toFixed(2)}</td>
                                 <td>{x.unidad_total || ""}</td>
                             </tr>
                         ))}

@@ -42,7 +42,7 @@ const CargaCatalogos = ({ onCatalogosCargados }) => {
 
   return (
     <div style={{ border: "1px solid #ccc", padding: "1rem" }}>
-      <h2>Carga de catálogos</h2>
+      <h3>Carga de catálogos</h3>
 
       <button onClick={cargarCatalogos} disabled={cargando}>
         {cargando ? "Cargando..." : "Cargar catálogos"}
