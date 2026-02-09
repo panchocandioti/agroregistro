@@ -12,7 +12,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
     id_insumo: "todos",
     id_prov_serv: "todos",
     id_prov_ins: "todos",
-    texto: "",
+    observaciones: "",
   });
 
   const [idAplicacionSeleccionada, setIdAplicacionSeleccionada] = useState(null);
@@ -96,11 +96,35 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
   }, [registros, idxLotes, idxInsumos, idxProveedores]);
 
 
+  const norm = (s) =>
+    (s ?? "")
+      .toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, ""); // quita tildes
+
   const resultados = useMemo(() => {
-    // si querés “lo más nuevo arriba”
-    const filtrados = filtrar(registros, filtros);
-    return filtrados.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
-  }, [registros, filtros]);
+    let filtrados = filtrar(registros, filtros);
+
+    const q = norm(filtros.observaciones).trim();
+    if (q) {
+      filtrados = filtrados.filter((r) => {
+        const texto = [
+          r.observaciones,
+          nombreProveedor(r.id_prov_serv),
+          nombreProveedor(r.id_prov_ins),
+          ...(r.lotes ?? []).flatMap((l) => [l.id_lote, nombreLote(l.id_lote, l.nombre_lote)]),
+          ...(r.insumos ?? []).flatMap((i) => [i.id_insumo, nombreInsumo(i.id_insumo, i.nombre_insumo)]),
+        ].join(" ");
+
+        return norm(texto).includes(q);
+      });
+    }
+
+    // NO mutar el array original
+    return [...filtrados].sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
+  }, [registros, filtros, idxLotes, idxInsumos, idxProveedores]);
+
 
   const limpiarFiltros = () => {
     setFiltros({
@@ -110,7 +134,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
       id_insumo: "todos",
       id_prov_serv: "todos",
       id_prov_ins: "todos",
-      texto: "",
+      observaciones: "",
     });
   };
 
@@ -269,8 +293,8 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                 type="text"
                 className="form-control"
                 placeholder="Ej: barbecho, glifosato, T01/L01..."
-                value={filtros.texto}
-                onChange={(e) => setFiltros((f) => ({ ...f, texto: e.target.value }))}
+                value={filtros.observaciones}
+                onChange={(e) => setFiltros((f) => ({ ...f, observaciones: e.target.value }))}
               />
             </div>
 
