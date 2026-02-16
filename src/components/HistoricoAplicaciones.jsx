@@ -12,7 +12,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
     id_insumo: "todos",
     id_prov_serv: "todos",
     id_prov_ins: "todos",
-    observaciones: "",
+    texto: "",
   });
 
   const [idAplicacionSeleccionada, setIdAplicacionSeleccionada] = useState(null);
@@ -106,7 +106,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
   const resultados = useMemo(() => {
     let filtrados = filtrar(registros, filtros);
 
-    const q = norm(filtros.observaciones).trim();
+    const q = norm(filtros.texto).trim();
     if (q) {
       filtrados = filtrados.filter((r) => {
         const texto = [
@@ -134,7 +134,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
       id_insumo: "todos",
       id_prov_serv: "todos",
       id_prov_ins: "todos",
-      observaciones: "",
+      texto: "",
     });
   };
 
@@ -232,7 +232,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                 <option value="todos">Todos</option>
                 {opciones.lotesOpc.map((l) => (
                   <option key={l.id_lote} value={l.id_lote}>
-                    {l.nombre_lote} ({l.id_lote})
+                    {l.nombre_lote}
                   </option>
                 ))}
               </select>
@@ -248,7 +248,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                 <option value="todos">Todos</option>
                 {opciones.insumosOpc.map((i) => (
                   <option key={i.id_insumo} value={i.id_insumo}>
-                    {i.nombre_insumo} ({i.id_insumo})
+                    {i.nombre_insumo}
                   </option>
                 ))}
               </select>
@@ -264,7 +264,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                 <option value="todos">Todos</option>
                 {opciones.provServOpc.map((p) => (
                   <option key={p.id_proveedor} value={p.id_proveedor}>
-                    {p.nombre_proveedor} ({p.id_proveedor})
+                    {p.nombre_proveedor}
                   </option>
                 ))}
               </select>
@@ -280,7 +280,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                 <option value="todos">Todos</option>
                 {opciones.provInsOpc.map((p) => (
                   <option key={p.id_proveedor} value={p.id_proveedor}>
-                    {p.nombre_proveedor} ({p.id_proveedor})
+                    {p.nombre_proveedor}
                   </option>
                 ))}
 
@@ -293,8 +293,8 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                 type="text"
                 className="form-control"
                 placeholder="Ej: barbecho, glifosato, T01/L01..."
-                value={filtros.observaciones}
-                onChange={(e) => setFiltros((f) => ({ ...f, observaciones: e.target.value }))}
+                value={filtros.texto}
+                onChange={(e) => setFiltros((f) => ({ ...f, texto: e.target.value }))}
               />
             </div>
 
@@ -334,7 +334,6 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                         {(r.lotes ?? []).map((l) => (
                           <div key={l.id_lote}>
                             {nombreLote(l.id_lote, l.nombre_lote)}{" "}
-                            <span className="text-muted">({l.id_lote})</span>
                           </div>
                         ))}
                       </td>
@@ -344,7 +343,6 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                           <div key={i.id_insumo} className="mb-2">
                             <div>
                               {nombreInsumo(i.id_insumo, i.nombre_insumo)}{" "}
-                              <span className="text-muted">({i.id_insumo})</span>
                             </div>
                             <div className="text-muted">
                               Dosis: {i.dosis} · Total: {i.cantidad_total} {i.unidad_total}
@@ -355,12 +353,10 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
 
                       <td style={{ whiteSpace: "nowrap" }}>
                         {nombreProveedor(r.id_prov_serv)}{" "}
-                        <span className="text-muted">({r.id_prov_serv})</span>
                       </td>
 
                       <td style={{ whiteSpace: "nowrap" }}>
                         {nombreProveedor(r.id_prov_ins)}{" "}
-                        <span className="text-muted">({r.id_prov_ins})</span>
                       </td>
 
                       <td>{r.observaciones}</td>
@@ -388,7 +384,7 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                   <>
                     <div className="mt-2">
                       <span className="fw-bold">{resumenInsumoSeleccionado.nombre}</span>:{" "}
-                      {resumenInsumoSeleccionado.total.toFixed(1)}{" "}
+                      {resumenInsumoSeleccionado.total.toFixed(2)}{" "}
                       {resumenInsumoSeleccionado.unidadTotal || ""}
                     </div>
                     <div className="text-muted">
