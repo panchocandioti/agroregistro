@@ -10,13 +10,15 @@ import { exportPendienteCargaPorAplicacionXlsx } from "./services/pendienteCarga
 import logo from "./multimedia/Logo_AgroRegistro.png";
 
 function App() {
+  const [tambos, setTambos] = useState([]);
   const [lotes, setLotes] = useState([]);
   const [insumos, setInsumos] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [historico, setHistorico] = useState({ version: 1, updated_at: "", aplicaciones: [] });
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
 
-  const handleCatalogosCargados = ({ lotes, insumos, proveedores }) => {
+  const handleCatalogosCargados = ({ lotes, insumos, proveedores, tambos }) => {
+    setTambos(tambos);
     setLotes(lotes);
     setInsumos(insumos);
     setProveedores(proveedores);
@@ -52,8 +54,13 @@ function App() {
       lotes.map((l) => [l.id_lote, l])
     );
 
+    const tambosIndex = new Map(
+      tambos.map((t) => [t.id_tambo, t])
+    );
+
     exportPendienteCargaPorAplicacionXlsx({
       aplicacion: aplicacionNueva,
+      tambosIndex,
       lotesIndex,
       insumosIndex,
       proveedoresIndex,
@@ -117,8 +124,13 @@ function App() {
       lotes.map((l) => [l.id_lote, l])
     );
 
+    const tambosIndex = new Map(
+      tambos.map((t) => [t.id_tambo, t])
+    );
+
     exportPendienteCargaPorAplicacionXlsx({
       aplicacion: aplicacionEditada,
+      tambosIndex,
       lotesIndex,
       insumosIndex,
       proveedoresIndex,
@@ -175,6 +187,7 @@ function App() {
 
         <hr />
 
+        <p>Tambos cargados: {tambos.length}</p>
         <p>Lotes cargados: {lotes.length}</p>
         <p>Insumos cargados: {insumos.length}</p>
         <p>Proveedores cargados: {proveedores.length}</p>
@@ -183,6 +196,7 @@ function App() {
 
         {lotes.length > 0 && (
           <AltaAplicacion
+            tambos={tambos}
             lotes={lotes}
             insumos={insumos}
             proveedores={proveedores}
@@ -197,6 +211,7 @@ function App() {
 
       {mostrarHistorico && (<HistoricoAplicaciones
         historico={historico}
+        tambos={tambos}
         lotes={lotes}
         proveedores={proveedores}
         insumos={insumos}

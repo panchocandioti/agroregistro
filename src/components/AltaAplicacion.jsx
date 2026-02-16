@@ -3,6 +3,7 @@ import Tratamiento from "./Tratamiento";
 import ResumenAplicacion from "./ResumenAplicacion";
 
 function AltaAplicacion({
+    tambos,
     lotes,
     insumos,
     proveedores,
@@ -18,7 +19,9 @@ function AltaAplicacion({
     // opcional, para cerrar editor desde histórico
     onCancelar,
 }) {
+    const [ordenCarga, setOrdenCarga] = useState("");
     const [fechaAplicacion, setFechaAplicacion] = useState("");
+    const [tamboAplicacion, setTamboAplicacion] = useState("");
     const [proveedorInsumos, setProveedorInsumos] = useState("");
     const [proveedorServicios, setProveedorServicios] = useState("");
 
@@ -38,8 +41,9 @@ function AltaAplicacion({
 
         setIdAplicacion(aplicacionInicial.id_aplicacion || "");
         setCreatedAt(aplicacionInicial.created_at || "");
-
+        setOrdenCarga(aplicacionInicial.orden_carga || "");
         setFechaAplicacion(aplicacionInicial.fecha_aplicacion || "");
+        setTamboAplicacion(aplicacionInicial.tambo_aplicacion || "");
         setProveedorServicios(aplicacionInicial.id_prov_serv || "");
         setProveedorInsumos(aplicacionInicial.id_prov_ins || "");
 
@@ -76,8 +80,9 @@ function AltaAplicacion({
             // ✅ si es edición, mantenemos id/created_at
             id_aplicacion: modo === "edicion" ? idAplicacion : idNuevo,
             created_at: modo === "edicion" ? createdAt : now,
-
+            orden_carga: ordenCarga.trim(),
             fecha_aplicacion: fechaAplicacion,
+            tambo_aplicacion: tamboAplicacion,
             id_prov_serv: proveedorServicios,
             id_prov_ins: proveedorInsumos,
             tratamientos,
@@ -93,7 +98,9 @@ function AltaAplicacion({
         }
 
         // modo alta
+        setOrdenCarga("");
         setFechaAplicacion("");
+        setTamboAplicacion("");
         setProveedorInsumos("");
         setProveedorServicios("");
         setTratamientos([{ lotes: [], insumos: [], observaciones: "" }]);
@@ -120,6 +127,18 @@ function AltaAplicacion({
                 </div>
 
                 <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginTop: "1rem" }}>
+
+                    {/* Orden de carga */}
+                    <div>
+                        <label>Orden de carga</label><br />
+                        <input
+                            type="text"
+                            className="form-control"
+                            value={ordenCarga}
+                            onChange={(e) => setOrdenCarga(e.target.value)}
+                        />
+                    </div>
+
                     {/* Fecha */}
                     <div>
                         <label>Fecha</label><br />
@@ -128,6 +147,22 @@ function AltaAplicacion({
                             value={fechaAplicacion}
                             onChange={(e) => setFechaAplicacion(e.target.value)}
                         />
+                    </div>
+
+                    {/* Tambo */}
+                    <div>
+                        <label>Tambo</label><br />
+                        <select
+                            value={tamboAplicacion}
+                            onChange={(e) => setTamboAplicacion(e.target.value)}
+                        >
+                            <option value="">Seleccionar</option>
+                            {tambos.map((t) => (
+                                <option key={t.id_tambo} value={t.id_tambo}>
+                                    {t.nombre_tambo}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* Proveedor insumos */}
@@ -164,7 +199,7 @@ function AltaAplicacion({
                 </div>
             </div>
 
-            {fechaAplicacion && proveedorInsumos && proveedorServicios && (
+            {tamboAplicacion && fechaAplicacion && proveedorInsumos && proveedorServicios && (
                 <div>
                     <h3>Tratamientos</h3>
 
@@ -204,10 +239,13 @@ function AltaAplicacion({
 
             {mostrarResumenAplicacion && (
                 <ResumenAplicacion
+                    ordenCarga={ordenCarga}
                     fechaAplicacion={fechaAplicacion}
+                    tamboAplicacion={tamboAplicacion}
                     proveedorServiciosId={proveedorServicios}
                     proveedorInsumosId={proveedorInsumos}
                     proveedores={proveedores}
+                    tambos={tambos}
                     tratamientos={tratamientos}
                 />
             )}

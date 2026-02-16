@@ -33,10 +33,13 @@ async function loadImageAsDataUrl(src) {
  * Firma igual que el componente para que sea plug&play.
  */
 export async function exportResumenAplicacionPDF({
+  ordenCarga,
   fechaAplicacion,
+  tamboAplicacion,
   proveedorServiciosId,
   proveedorInsumosId,
   proveedores,
+  tambos,
   tratamientos,
   nombreArchivo,
 }) {
@@ -45,6 +48,9 @@ export async function exportResumenAplicacionPDF({
   );
   const provIns = (proveedores || []).find(
     (p) => String(p.id_proveedor) === String(proveedorInsumosId)
+  );
+  const tamboAplic = (tambos || []).find(
+    (t) => String(t.id_tambo) === String(tamboAplicacion)
   );
 
   const formatFechaHora = (date = new Date()) => {
@@ -105,17 +111,31 @@ export async function exportResumenAplicacionPDF({
   autoTable(doc, {
     startY: 18,
     theme: "grid",
-    styles: { fontSize: 9, cellPadding: 2 },
+    styles: { fontSize: 8, cellPadding: 2 },
     margin: { left: marginX, right: marginX },
-    head: [["Fecha", "Prov. servicios", "Prov. insumos"]],
+    head: [["Orden", "Fecha", "Tambo"]],
     body: [[
+      ordenCarga || "-",
       fechaAplicacion || "-",
+      tamboAplic?.nombre_tambo || "-",
+    ]],
+  });
+
+  let y = doc.lastAutoTable.finalY + 5;
+
+  autoTable(doc, {
+    startY: y,
+    theme: "grid",
+    styles: { fontSize: 8, cellPadding: 2 },
+    margin: { left: marginX, right: marginX },
+    head: [["Prov. servicios", "Prov. insumos"]],
+    body: [[
       provServ?.nombre_proveedor || "-",
       provIns?.nombre_proveedor || "-",
     ]],
   });
 
-  let y = doc.lastAutoTable.finalY + 6;
+  y += 25;
 
   (tratamientos || []).forEach((t, idx) => {
     const lotes = t.lotes || [];
@@ -141,7 +161,7 @@ export async function exportResumenAplicacionPDF({
     autoTable(doc, {
       startY: y,
       theme: "grid",
-      styles: { fontSize: 9, cellPadding: 2 },
+      styles: { fontSize: 8, cellPadding: 2 },
       margin: { left: marginX, right: marginX },
       head: [["Lote", "ha"]],
       body: lotes.map((l) => [l.nombre_lote || "", fmt2(l.superficie)]),
@@ -152,7 +172,7 @@ export async function exportResumenAplicacionPDF({
     autoTable(doc, {
       startY: y,
       theme: "grid",
-      styles: { fontSize: 9, cellPadding: 2 },
+      styles: { fontSize: 8, cellPadding: 2 },
       margin: { left: marginX, right: marginX },
       head: [["Insumo", "Dosis", "Unidad", "Total", "Unidad"]],
       body: insumos.map((ins) => [
@@ -187,7 +207,7 @@ export async function exportResumenAplicacionPDF({
   autoTable(doc, {
     startY: y + 2,
     theme: "grid",
-    styles: { fontSize: 9, cellPadding: 2 },
+    styles: { fontSize: 8, cellPadding: 2 },
     margin: { left: marginX, right: marginX },
     head: [["Insumo", "Cantidad total", "Unidad"]],
     body: totalesPorInsumo.map((x) => [

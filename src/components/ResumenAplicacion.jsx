@@ -8,12 +8,16 @@ const toNum = (v) => {
 };
 
 function ResumenAplicacion({
+    ordenCarga,
     fechaAplicacion,
+    tamboAplicacion,
     proveedorServiciosId,
     proveedorInsumosId,
+    tambos,
     proveedores,
     tratamientos,
 }) {
+    const tamboAplic = tambos?.find(t => String(t.id_tambo) === String(tamboAplicacion));
     const provServ = proveedores?.find(p => String(p.id_proveedor) === String(proveedorServiciosId));
     const provIns = proveedores?.find(p => String(p.id_proveedor) === String(proveedorInsumosId));
 
@@ -56,7 +60,12 @@ function ResumenAplicacion({
             <h3>Resumen de la aplicación</h3>
 
             <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+                <div><strong>Orden:</strong> {ordenCarga || "-"}</div>
                 <div><strong>Fecha:</strong> {fechaAplicacion || "-"}</div>
+                <div><strong>Tambo:</strong> {tamboAplic?.nombre_tambo || "-"}</div>
+            </div>
+
+            <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", marginBottom: "1rem" }}>
                 <div><strong>Prov. servicios:</strong> {provServ?.nombre_proveedor || "-"}</div>
                 <div><strong>Prov. insumos:</strong> {provIns?.nombre_proveedor || "-"}</div>
             </div>
@@ -158,10 +167,13 @@ function ResumenAplicacion({
                 className="btn btn-outline-danger text-end"
                 onClick={() =>
                     exportResumenAplicacionPDF({
+                        ordenCarga,
                         fechaAplicacion,
+                        tamboAplicacion,
                         proveedorServiciosId: provServ?.id_proveedor,
                         proveedorInsumosId: provIns?.id_proveedor,
                         proveedores,
+                        tambos,
                         tratamientos,
                         nombreArchivo: `resumen_aplicacion_${fechaAplicacion}.pdf`,
                     })

@@ -3,11 +3,20 @@ import { formatFecha, aplanarAplicaciones, filtrar } from "../services/historico
 import ResumenAplicacion from "./ResumenAplicacion";
 import AltaAplicacion from "./AltaAplicacion";
 
-export default function HistoricoAplicaciones({ historico, lotes, insumos, proveedores, onBorrarAplicacion,
-  onEditarAplicacion }) {
+export default function HistoricoAplicaciones({
+  historico,
+  tambos,
+  lotes,
+  insumos,
+  proveedores,
+  onBorrarAplicacion,
+  onEditarAplicacion,
+}) {
   const [filtros, setFiltros] = useState({
+    orden_carga: "todos",
     fechaDesde: "",
     fechaHasta: "",
+    id_tambo: "todos",
     id_lote: "todos",
     id_insumo: "todos",
     id_prov_serv: "todos",
@@ -17,37 +26,125 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
 
   const [idAplicacionSeleccionada, setIdAplicacionSeleccionada] = useState(null);
   const [modoEdicion, setModoEdicion] = useState(false);
-  const [borrador, setBorrador] = useState(null); // copia editable
+  const [borrador, setBorrador] = useState(null);
 
-  // índices para resolver nombres rápido
-  const idxLotes = useMemo(() => new Map((lotes ?? []).map((l) => [l.id_lote, l])), [lotes]);
-  const idxInsumos = useMemo(() => new Map((insumos ?? []).map((i) => [i.id_insumo, i])), [insumos]);
-
-  // ⛳️ IMPORTANTE: ajustá estas 2 claves si tu proveedor se llama distinto
+  // Índices de catálogos
+  const idxTambos = useMemo(
+    () => new Map((tambos ?? []).map((t) => [String(t.id_tambo), t])),
+    [tambos]
+  );
+  const idxLotes = useMemo(
+    () => new Map((lotes ?? []).map((l) => [String(l.id_lote), l])),
+    [lotes]
+  );
+  const idxInsumos = useMemo(
+    () => new Map((insumos ?? []).map((i) => [String(i.id_insumo), i])),
+    [insumos]
+  );
   const idxProveedores = useMemo(
-    () => new Map((proveedores ?? []).map((p) => [p.id_proveedor, p])),
+    () => new Map((proveedores ?? []).map((p) => [String(p.id_proveedor), p])),
     [proveedores]
   );
 
-  const nombreLote = (id_lote, fallback) => idxLotes.get(id_lote)?.nombre_lote ?? fallback ?? id_lote ?? "";
-  const nombreInsumo = (id_insumo, fallback) => idxInsumos.get(id_insumo)?.nombre_insumo ?? fallback ?? id_insumo ?? "";
+  const nombreTambo = (id_tambo, fallback) =>
+    idxTambos.get(String(id_tambo))?.nombre_tambo ?? fallback ?? id_tambo ?? "";
+  const nombreLote = (id_lote, fallback) =>
+    idxLotes.get(String(id_lote))?.nombre_lote ?? fallback ?? id_lote ?? "";
+  const nombreInsumo = (id_insumo, fallback) =>
+    idxInsumos.get(String(id_insumo))?.nombre_insumo ?? fallback ?? id_insumo ?? "";
   const nombreProveedor = (id_proveedor) =>
-    idxProveedores.get(id_proveedor)?.nombre_proveedor ?? id_proveedor ?? "";
+    idxProveedores.get(String(id_proveedor))?.nombre_proveedor ?? id_proveedor ?? "";
 
-  const registros = useMemo(() => aplanarAplicaciones(historico), [historico]);
+  // ✅ Índices: id_aplicacion -> campos reales (salen del JSON)
+  const tamboPorAplicacion = useMemo(() => {
+    const m = new Map();
+    (historico?.aplicaciones ?? []).forEach((a) => {
+      m.set(String(a.id_aplicacion), a.tambo_aplicacion ?? "");
+    });
+    return m;
+  }, [historico]);
 
-  // opciones de filtros desde catálogos (mejor que desde histórico)
+  const ordenPorAplicacion = useMemo(() => {
+    const m = new Map();
+    (historico?.aplicaciones ?? []).forEach((a) => {
+      m.set(String(a.id_aplicacion), a.orden_carga ?? "");
+    });
+    return m;
+  }, [historico]);
+
+  // ✅ Registros aplanados + enriquecidos (tambo_aplicacion, orden_carga, fecha)
+  const registros = useMemo(() => {
+    const arr = aplanarAplicaciones(historico) ?? [];
+
+    return arr.map((r) => {
+      const idApp = String(r.id_aplicacion ?? "");
+
+      const tamboA =
+        r.tambo_aplicacion ?? tamboPorAplicacion.get(idApp) ?? "";
+
+      const orden =
+        r.orden_carga ?? ordenPorAplicacion.get(idApp) ?? "";
+
+      // Normalizo fecha por si el aplanado no usa "fecha"
+      const fecha = r.fecha ?? r.fecha_aplicacion ?? "";
+
+      return {
+        ...r,
+        tambo_aplicacion: tamboA,
+        orden_carga: orden,
+        fecha,
+      };
+    });
+  }, [historico, tamboPorAplicacion, ordenPorAplicacion]);
+
+  // Opciones (solo valores presentes en el histórico)
   const opciones = useMemo(() => {
-    // ===== Lotes presentes en el histórico =====
+    // ===== Órdenes presentes =====
+    const ordenSet = new Set(
+      registros
+        .map((r) => r.orden_carga)
+        .filter((v) => v != null && String(v).trim() !== "")
+        .map((v) => String(v).trim())
+    );
+
+    // Ordeno “inteligente”: primero numéricas, luego texto, dentro de cada grupo ascendente
+    const ordenesOpc = Array.from(ordenSet).sort((a, b) => {
+      const na = Number(a);
+      const nb = Number(b);
+      const aNum = Number.isFinite(na) && String(na) === String(Number(a)); // heurística simple
+      const bNum = Number.isFinite(nb) && String(nb) === String(Number(b));
+      if (aNum && bNum) return na - nb;
+      if (aNum && !bNum) return -1;
+      if (!aNum && bNum) return 1;
+      return a.localeCompare(b, "es");
+    });
+
+    // ===== Tambos presentes =====
+    const tambosSet = new Set(
+      registros
+        .map((r) => r.tambo_aplicacion)
+        .filter((id) => id != null && String(id).trim() !== "")
+        .map((id) => String(id))
+    );
+
+    const tambosOpc = Array.from(tambosSet)
+      .map((id) => ({
+        id_tambo: id,
+        nombre_tambo: idxTambos.get(id)?.nombre_tambo ?? id,
+      }))
+      .sort((a, b) => (a.nombre_tambo ?? "").localeCompare(b.nombre_tambo ?? "", "es"));
+
+    // ===== Lotes presentes =====
     const lotesMap = new Map();
     registros.forEach((r) => {
       (r.lotes ?? []).forEach((l) => {
-        if (!l?.id_lote) return;
-        if (!lotesMap.has(l.id_lote)) {
-          const cat = idxLotes.get(l.id_lote);
-          lotesMap.set(l.id_lote, {
-            id_lote: l.id_lote,
-            nombre_lote: cat?.nombre_lote ?? l.nombre_lote ?? l.id_lote,
+        const id = l?.id_lote ? String(l.id_lote) : "";
+        if (!id) return;
+        if (!lotesMap.has(id)) {
+          const cat = idxLotes.get(id);
+          lotesMap.set(id, {
+            id_lote: id,
+            nombre_lote: cat?.nombre_lote ?? l.nombre_lote ?? id,
           });
         }
       });
@@ -56,16 +153,17 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
       (a.nombre_lote ?? "").localeCompare(b.nombre_lote ?? "", "es")
     );
 
-    // ===== Insumos presentes en el histórico =====
+    // ===== Insumos presentes =====
     const insumosMap = new Map();
     registros.forEach((r) => {
       (r.insumos ?? []).forEach((i) => {
-        if (!i?.id_insumo) return;
-        if (!insumosMap.has(i.id_insumo)) {
-          const cat = idxInsumos.get(i.id_insumo);
-          insumosMap.set(i.id_insumo, {
-            id_insumo: i.id_insumo,
-            nombre_insumo: cat?.nombre_insumo ?? i.nombre_insumo ?? i.id_insumo,
+        const id = i?.id_insumo ? String(i.id_insumo) : "";
+        if (!id) return;
+        if (!insumosMap.has(id)) {
+          const cat = idxInsumos.get(id);
+          insumosMap.set(id, {
+            id_insumo: id,
+            nombre_insumo: cat?.nombre_insumo ?? i.nombre_insumo ?? id,
           });
         }
       });
@@ -74,9 +172,9 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
       (a.nombre_insumo ?? "").localeCompare(b.nombre_insumo ?? "", "es")
     );
 
-    // ===== Proveedores presentes (servicio e insumos) =====
-    const provServSet = new Set(registros.map((r) => r.id_prov_serv).filter(Boolean));
-    const provInsSet = new Set(registros.map((r) => r.id_prov_ins).filter(Boolean));
+    // ===== Proveedores presentes =====
+    const provServSet = new Set(registros.map((r) => r.id_prov_serv).filter(Boolean).map(String));
+    const provInsSet = new Set(registros.map((r) => r.id_prov_ins).filter(Boolean).map(String));
 
     const provServOpc = Array.from(provServSet)
       .map((id) => ({
@@ -92,25 +190,43 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
       }))
       .sort((a, b) => (a.nombre_proveedor ?? "").localeCompare(b.nombre_proveedor ?? "", "es"));
 
-    return { lotesOpc, insumosOpc, provServOpc, provInsOpc };
-  }, [registros, idxLotes, idxInsumos, idxProveedores]);
-
+    return { ordenesOpc, tambosOpc, lotesOpc, insumosOpc, provServOpc, provInsOpc };
+  }, [registros, idxTambos, idxLotes, idxInsumos, idxProveedores]);
 
   const norm = (s) =>
     (s ?? "")
       .toString()
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, ""); // quita tildes
+      .replace(/[\u0300-\u036f]/g, "");
 
   const resultados = useMemo(() => {
+    // Primero aplico lo que tengas en filtrar (fechas, lote, insumo, proveedores, etc.)
     let filtrados = filtrar(registros, filtros);
 
+    // ✅ Filtro local por Orden (por si filtrar todavía no lo contempla)
+    if (filtros.orden_carga && filtros.orden_carga !== "todos") {
+      filtrados = filtrados.filter(
+        (r) => String(r.orden_carga ?? "") === String(filtros.orden_carga)
+      );
+    }
+
+    // ✅ Filtro local por Tambo (por si filtrar todavía no lo contempla)
+    if (filtros.id_tambo && filtros.id_tambo !== "todos") {
+      filtrados = filtrados.filter(
+        (r) => String(r.tambo_aplicacion ?? "") === String(filtros.id_tambo)
+      );
+    }
+
+    // Búsqueda libre
     const q = norm(filtros.texto).trim();
     if (q) {
       filtrados = filtrados.filter((r) => {
         const texto = [
           r.observaciones,
+          r.orden_carga,
+          r.tambo_aplicacion,
+          nombreTambo(r.tambo_aplicacion),
           nombreProveedor(r.id_prov_serv),
           nombreProveedor(r.id_prov_ins),
           ...(r.lotes ?? []).flatMap((l) => [l.id_lote, nombreLote(l.id_lote, l.nombre_lote)]),
@@ -121,15 +237,17 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
       });
     }
 
-    // NO mutar el array original
-    return [...filtrados].sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
-  }, [registros, filtros, idxLotes, idxInsumos, idxProveedores]);
-
+    return [...filtrados].sort((a, b) =>
+      a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0
+    );
+  }, [registros, filtros, idxTambos, idxLotes, idxInsumos, idxProveedores]);
 
   const limpiarFiltros = () => {
     setFiltros({
+      orden_carga: "todos",
       fechaDesde: "",
       fechaHasta: "",
+      id_tambo: "todos",
       id_lote: "todos",
       id_insumo: "todos",
       id_prov_serv: "todos",
@@ -140,43 +258,31 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
 
   const totalHectareas = useMemo(() => {
     return resultados.reduce((total, r) => {
-      const sumaLotes = (r.lotes ?? []).reduce((acc, lote) => {
-        const sup = Number(lote.superficie) || 0;
-        return acc + sup;
-      }, 0);
-
+      const sumaLotes = (r.lotes ?? []).reduce(
+        (acc, lote) => acc + (Number(lote.superficie) || 0),
+        0
+      );
       return total + sumaLotes;
     }, 0);
   }, [resultados]);
 
   const resumenInsumoSeleccionado = useMemo(() => {
     if (filtros.id_insumo === "todos") return null;
-
-    const id = filtros.id_insumo;
-
-    // nombre desde catálogo (ajustá según tu helper actual)
+    const id = String(filtros.id_insumo);
     const nombre = idxInsumos.get(id)?.nombre_insumo ?? id;
 
     let total = 0;
-    let unidadTotal = ""; // Litros, Kg, etc. (tomamos la última encontrada)
+    let unidadTotal = "";
 
     for (const r of resultados) {
-      const item = (r.insumos ?? []).find((i) => i.id_insumo === id);
+      const item = (r.insumos ?? []).find((i) => String(i.id_insumo) === id);
       if (!item) continue;
-
       total += parseFloat(item.cantidad_total) || 0;
       unidadTotal = item.unidad_total || unidadTotal;
     }
 
     const dosisMedia = totalHectareas > 0 ? total / totalHectareas : 0;
-
-    return {
-      id,
-      nombre,
-      total,
-      unidadTotal,
-      dosisMedia,
-    };
+    return { id, nombre, total, unidadTotal, dosisMedia };
   }, [filtros.id_insumo, resultados, totalHectareas, idxInsumos]);
 
   const aplicacionSeleccionada = useMemo(() => {
@@ -190,215 +296,246 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
 
   return (
     <div className="container-fluid p-0">
-      {!aplicacionSeleccionada && (<div className="card mb-3">
-        <div className="card-body">
-          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <h5 className="m-0">Histórico de aplicaciones</h5>
-            <div className="text-muted">
-              {resultados.length} resultado{resultados.length === 1 ? "" : "s"}
-            </div>
-          </div>
-
-          <hr />
-
-          <div className="row g-2">
-            <div className="col-12 col-md-3">
-              <label className="form-label"><b>Fecha desde</b></label>
-              <input
-                type="date"
-                className="form-control"
-                value={filtros.fechaDesde}
-                onChange={(e) => setFiltros((f) => ({ ...f, fechaDesde: e.target.value }))}
-              />
+      {!aplicacionSeleccionada && (
+        <div className="card mb-3">
+          <div className="card-body">
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <h5 className="m-0">Histórico de aplicaciones</h5>
+              <div className="text-muted">
+                {resultados.length} resultado{resultados.length === 1 ? "" : "s"}
+              </div>
             </div>
 
-            <div className="col-12 col-md-3">
-              <label className="form-label"><b>Fecha hasta</b></label>
-              <input
-                type="date"
-                className="form-control"
-                value={filtros.fechaHasta}
-                onChange={(e) => setFiltros((f) => ({ ...f, fechaHasta: e.target.value }))}
-              />
-            </div>
+            <hr />
 
-            <div className="col-12 col-md-3">
-              <label className="form-label"><b>Lote</b></label>
-              <select
-                className="form-select"
-                value={filtros.id_lote}
-                onChange={(e) => setFiltros((f) => ({ ...f, id_lote: e.target.value }))}
-              >
-                <option value="todos">Todos</option>
-                {opciones.lotesOpc.map((l) => (
-                  <option key={l.id_lote} value={l.id_lote}>
-                    {l.nombre_lote}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="col-12 col-md-3">
-              <label className="form-label"><b>Insumo</b></label>
-              <select
-                className="form-select"
-                value={filtros.id_insumo}
-                onChange={(e) => setFiltros((f) => ({ ...f, id_insumo: e.target.value }))}
-              >
-                <option value="todos">Todos</option>
-                {opciones.insumosOpc.map((i) => (
-                  <option key={i.id_insumo} value={i.id_insumo}>
-                    {i.nombre_insumo}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="col-12 col-md-3">
-              <label className="form-label"><b>Proveedor de servicio</b></label>
-              <select
-                className="form-select"
-                value={filtros.id_prov_serv}
-                onChange={(e) => setFiltros((f) => ({ ...f, id_prov_serv: e.target.value }))}
-              >
-                <option value="todos">Todos</option>
-                {opciones.provServOpc.map((p) => (
-                  <option key={p.id_proveedor} value={p.id_proveedor}>
-                    {p.nombre_proveedor}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="col-12 col-md-3">
-              <label className="form-label"><b>Proveedor de insumos</b></label>
-              <select
-                className="form-select"
-                value={filtros.id_prov_ins}
-                onChange={(e) => setFiltros((f) => ({ ...f, id_prov_ins: e.target.value }))}
-              >
-                <option value="todos">Todos</option>
-                {opciones.provInsOpc.map((p) => (
-                  <option key={p.id_proveedor} value={p.id_proveedor}>
-                    {p.nombre_proveedor}
-                  </option>
-                ))}
-
-              </select>
-            </div>
-
-            <div className="col-12 col-md-4">
-              <label className="form-label"><b>Buscar (obs / nombres)</b></label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Ej: barbecho, glifosato, T01/L01..."
-                value={filtros.texto}
-                onChange={(e) => setFiltros((f) => ({ ...f, texto: e.target.value }))}
-              />
-            </div>
-
-            <div className="col-12 col-md-2 d-flex align-items-end">
-              <button type="button" className="btn btn-outline-secondary w-100" onClick={limpiarFiltros}>
-                Limpiar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>)}
-
-      <div className="card">
-        {!aplicacionSeleccionada && (<div className="card-body">
-          {resultados.length === 0 ? (
-            <div className="alert alert-warning m-0">No hay resultados con esos filtros.</div>
-          ) : (
-            <div className="table-responsive">
-              <table className="table table-sm align-middle">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Lotes</th>
-                    <th>Insumos</th>
-                    <th>Prov. Serv.</th>
-                    <th>Prov. Ins.</th>
-                    <th>Obs.</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resultados.map((r) => (
-                    <tr key={`${r.id_aplicacion}_${r.idx_tratamiento}`}>
-                      <td style={{ whiteSpace: "nowrap" }}>{formatFecha(r.fecha)}</td>
-
-                      <td>
-                        {(r.lotes ?? []).map((l) => (
-                          <div key={l.id_lote}>
-                            {nombreLote(l.id_lote, l.nombre_lote)}{" "}
-                          </div>
-                        ))}
-                      </td>
-
-                      <td>
-                        {(r.insumos ?? []).map((i) => (
-                          <div key={i.id_insumo} className="mb-2">
-                            <div>
-                              {nombreInsumo(i.id_insumo, i.nombre_insumo)}{" "}
-                            </div>
-                            <div className="text-muted">
-                              Dosis: {i.dosis} · Total: {i.cantidad_total} {i.unidad_total}
-                            </div>
-                          </div>
-                        ))}
-                      </td>
-
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        {nombreProveedor(r.id_prov_serv)}{" "}
-                      </td>
-
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        {nombreProveedor(r.id_prov_ins)}{" "}
-                      </td>
-
-                      <td>{r.observaciones}</td>
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => setIdAplicacionSeleccionada(r.id_aplicacion)}
-                        >
-                          Ver resumen
-                        </button>
-                      </td>
-
-                    </tr>
+            <div className="row g-2">
+              {/* ✅ Orden de carga */}
+              <div className="col-12 col-md-3">
+                <label className="form-label"><b>Orden de carga</b></label>
+                <select
+                  className="form-select"
+                  value={filtros.orden_carga}
+                  onChange={(e) => setFiltros((f) => ({ ...f, orden_carga: e.target.value }))}
+                >
+                  <option value="todos">Todas</option>
+                  {opciones.ordenesOpc.map((ord) => (
+                    <option key={ord} value={ord}>{ord}</option>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div className="mt-3 text-end fw-bold">
-            <h5 style={{ color: "red" }}><strong>Total hectáreas: {totalHectareas.toFixed(1)} ha</strong></h5>
-            <div className="mt-3 d-flex justify-content-end">
-              <div className="text-end">
-                {resumenInsumoSeleccionado && (
-                  <>
-                    <div className="mt-2">
-                      <span className="fw-bold">{resumenInsumoSeleccionado.nombre}</span>:{" "}
-                      {resumenInsumoSeleccionado.total.toFixed(2)}{" "}
-                      {resumenInsumoSeleccionado.unidadTotal || ""}
-                    </div>
-                    <div className="text-muted">
-                      Dosis media: {resumenInsumoSeleccionado.dosisMedia.toFixed(2)}{" "}
-                      {resumenInsumoSeleccionado.unidadTotal
-                        ? `${resumenInsumoSeleccionado.unidadTotal}/ha`
-                        : "/ha"}
-                    </div>
-                  </>
-                )}
+                </select>
+              </div>
+
+              <div className="col-12 col-md-3">
+                <label className="form-label"><b>Fecha desde</b></label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={filtros.fechaDesde}
+                  onChange={(e) => setFiltros((f) => ({ ...f, fechaDesde: e.target.value }))}
+                />
+              </div>
+
+              <div className="col-12 col-md-3">
+                <label className="form-label"><b>Fecha hasta</b></label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={filtros.fechaHasta}
+                  onChange={(e) => setFiltros((f) => ({ ...f, fechaHasta: e.target.value }))}
+                />
+              </div>
+
+              <div className="col-12 col-md-3">
+                <label className="form-label"><b>Tambo</b></label>
+                <select
+                  className="form-select"
+                  value={filtros.id_tambo}
+                  onChange={(e) => setFiltros((f) => ({ ...f, id_tambo: e.target.value }))}
+                >
+                  <option value="todos">Todos</option>
+                  {opciones.tambosOpc.map((t) => (
+                    <option key={t.id_tambo} value={t.id_tambo}>
+                      {t.nombre_tambo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-12 col-md-3">
+                <label className="form-label"><b>Lote</b></label>
+                <select
+                  className="form-select"
+                  value={filtros.id_lote}
+                  onChange={(e) => setFiltros((f) => ({ ...f, id_lote: e.target.value }))}
+                >
+                  <option value="todos">Todos</option>
+                  {opciones.lotesOpc.map((l) => (
+                    <option key={l.id_lote} value={l.id_lote}>{l.nombre_lote}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-12 col-md-3">
+                <label className="form-label"><b>Insumo</b></label>
+                <select
+                  className="form-select"
+                  value={filtros.id_insumo}
+                  onChange={(e) => setFiltros((f) => ({ ...f, id_insumo: e.target.value }))}
+                >
+                  <option value="todos">Todos</option>
+                  {opciones.insumosOpc.map((i) => (
+                    <option key={i.id_insumo} value={i.id_insumo}>{i.nombre_insumo}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-12 col-md-3">
+                <label className="form-label"><b>Proveedor de servicio</b></label>
+                <select
+                  className="form-select"
+                  value={filtros.id_prov_serv}
+                  onChange={(e) => setFiltros((f) => ({ ...f, id_prov_serv: e.target.value }))}
+                >
+                  <option value="todos">Todos</option>
+                  {opciones.provServOpc.map((p) => (
+                    <option key={p.id_proveedor} value={p.id_proveedor}>{p.nombre_proveedor}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-12 col-md-3">
+                <label className="form-label"><b>Proveedor de insumos</b></label>
+                <select
+                  className="form-select"
+                  value={filtros.id_prov_ins}
+                  onChange={(e) => setFiltros((f) => ({ ...f, id_prov_ins: e.target.value }))}
+                >
+                  <option value="todos">Todos</option>
+                  {opciones.provInsOpc.map((p) => (
+                    <option key={p.id_proveedor} value={p.id_proveedor}>{p.nombre_proveedor}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-12 col-md-4">
+                <label className="form-label"><b>Buscar (obs / nombres)</b></label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ej: barbecho, glifosato, nro. orden de carga, T01/L01..."
+                  value={filtros.texto}
+                  onChange={(e) => setFiltros((f) => ({ ...f, texto: e.target.value }))}
+                />
+              </div>
+
+              <div className="col-12 col-md-2 d-flex align-items-end">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary w-100"
+                  onClick={limpiarFiltros}
+                >
+                  Limpiar
+                </button>
               </div>
             </div>
           </div>
-        </div>)}
+        </div>
+      )}
+
+      <div className="card">
+        {!aplicacionSeleccionada && (
+          <div className="card-body">
+            {resultados.length === 0 ? (
+              <div className="alert alert-warning m-0">No hay resultados con esos filtros.</div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Orden</th>
+                      <th>Fecha</th>
+                      <th>Tambo</th>
+                      <th>Lotes</th>
+                      <th>Insumos</th>
+                      <th>Prov. Serv.</th>
+                      <th>Prov. Ins.</th>
+                      <th>Obs.</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {resultados.map((r) => (
+                      <tr key={`${r.id_aplicacion}_${r.idx_tratamiento ?? 0}`}>
+                        <td style={{ whiteSpace: "nowrap" }}>{r.orden_carga ?? ""}</td>
+                        <td style={{ whiteSpace: "nowrap" }}>{formatFecha(r.fecha)}</td>
+                        <td style={{ whiteSpace: "nowrap" }}>{nombreTambo(r.tambo_aplicacion)}</td>
+
+                        <td>
+                          {(r.lotes ?? []).map((l) => (
+                            <div key={l.id_lote}>{nombreLote(l.id_lote, l.nombre_lote)}</div>
+                          ))}
+                        </td>
+
+                        <td>
+                          {(r.insumos ?? []).map((i) => (
+                            <div key={i.id_insumo} className="mb-2">
+                              <div>{nombreInsumo(i.id_insumo, i.nombre_insumo)}</div>
+                              <div className="text-muted">
+                                Dosis: {i.dosis} · Total: {i.cantidad_total} {i.unidad_total}
+                              </div>
+                            </div>
+                          ))}
+                        </td>
+
+                        <td style={{ whiteSpace: "nowrap" }}>{nombreProveedor(r.id_prov_serv)}</td>
+                        <td style={{ whiteSpace: "nowrap" }}>{nombreProveedor(r.id_prov_ins)}</td>
+
+                        <td>{r.observaciones}</td>
+
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => setIdAplicacionSeleccionada(r.id_aplicacion)}
+                          >
+                            Ver resumen
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="mt-3 text-end fw-bold">
+              <h5 style={{ color: "red" }}>
+                <strong>Total hectáreas: {totalHectareas.toFixed(1)} ha</strong>
+              </h5>
+
+              <div className="mt-3 d-flex justify-content-end">
+                <div className="text-end">
+                  {resumenInsumoSeleccionado && (
+                    <>
+                      <div className="mt-2">
+                        <span className="fw-bold">{resumenInsumoSeleccionado.nombre}</span>:{" "}
+                        {resumenInsumoSeleccionado.total.toFixed(2)}{" "}
+                        {resumenInsumoSeleccionado.unidadTotal || ""}
+                      </div>
+                      <div className="text-muted">
+                        Dosis media: {resumenInsumoSeleccionado.dosisMedia.toFixed(2)}{" "}
+                        {resumenInsumoSeleccionado.unidadTotal
+                          ? `${resumenInsumoSeleccionado.unidadTotal}/ha`
+                          : "/ha"}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {aplicacionSeleccionada && (
           <div className="card mt-3">
             <div className="card-body">
@@ -407,10 +544,10 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                   type="button"
                   className="btn btn-sm btn-outline-primary"
                   onClick={() => {
-                    const copia = (typeof structuredClone === "function")
-                      ? structuredClone(aplicacionSeleccionada)
-                      : deepClone(aplicacionSeleccionada);
-
+                    const copia =
+                      typeof structuredClone === "function"
+                        ? structuredClone(aplicacionSeleccionada)
+                        : JSON.parse(JSON.stringify(aplicacionSeleccionada));
                     setBorrador(copia);
                     setModoEdicion(true);
                   }}
@@ -429,7 +566,6 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
                   Borrar
                 </button>
 
-
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-secondary"
@@ -441,16 +577,22 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
 
               <hr />
 
-              {!modoEdicion ? (<ResumenAplicacion
-                fechaAplicacion={aplicacionSeleccionada.fecha_aplicacion}
-                proveedorServiciosId={aplicacionSeleccionada.id_prov_serv}
-                proveedorInsumosId={aplicacionSeleccionada.id_prov_ins}
-                proveedores={proveedores}
-                tratamientos={aplicacionSeleccionada.tratamientos}
-              />) : (
+              {!modoEdicion ? (
+                <ResumenAplicacion
+                  ordenCarga={aplicacionSeleccionada.orden_carga}
+                  fechaAplicacion={aplicacionSeleccionada.fecha_aplicacion}
+                  tamboAplicacion={aplicacionSeleccionada.tambo_aplicacion}
+                  tambos={tambos}
+                  proveedorServiciosId={aplicacionSeleccionada.id_prov_serv}
+                  proveedorInsumosId={aplicacionSeleccionada.id_prov_ins}
+                  proveedores={proveedores}
+                  tratamientos={aplicacionSeleccionada.tratamientos}
+                />
+              ) : (
                 <AltaAplicacion
                   modo="edicion"
                   aplicacionInicial={aplicacionSeleccionada}
+                  tambos={tambos}
                   lotes={lotes}
                   insumos={insumos}
                   proveedores={proveedores}
@@ -464,7 +606,6 @@ export default function HistoricoAplicaciones({ historico, lotes, insumos, prove
             </div>
           </div>
         )}
-
       </div>
     </div>
   );

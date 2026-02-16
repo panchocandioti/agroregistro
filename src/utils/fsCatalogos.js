@@ -20,17 +20,19 @@ async function readFileArrayBufferFromDir(dirHandle, filename) {
 }
 
 export async function loadCatalogosFromDir(dirHandle, leerExcelDesdeArrayBuffer) {
-    const [bufLotes, bufInsumos, bufProveedores] = await Promise.all([
+    const [bufTambos, bufLotes, bufInsumos, bufProveedores] = await Promise.all([
+        readFileArrayBufferFromDir(dirHandle, "tambos.xlsx"),
         readFileArrayBufferFromDir(dirHandle, "lotes.xlsx"),
         readFileArrayBufferFromDir(dirHandle, "insumos.xlsx"),
         readFileArrayBufferFromDir(dirHandle, "proveedores.xlsx"),
     ]);
 
-    const [lotes, insumos, proveedores] = await Promise.all([
+    const [tambos, lotes, insumos, proveedores] = await Promise.all([
+        leerExcelDesdeArrayBuffer(bufTambos),
         leerExcelDesdeArrayBuffer(bufLotes),
         leerExcelDesdeArrayBuffer(bufInsumos),
         leerExcelDesdeArrayBuffer(bufProveedores),
     ]);
 
-    return { lotes, insumos, proveedores };
+    return { tambos, lotes, insumos, proveedores };
 }
