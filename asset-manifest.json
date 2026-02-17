@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/agroregistro/static/css/main.6644bc53.css",
-    "main.js": "/agroregistro/static/js/main.5fcf03da.js",
+    "main.js": "/agroregistro/static/js/main.21ae7bc9.js",
     "static/js/239.bbdc3c20.chunk.js": "/agroregistro/static/js/239.bbdc3c20.chunk.js",
     "static/js/977.641bd355.chunk.js": "/agroregistro/static/js/977.641bd355.chunk.js",
     "static/js/455.86767fc4.chunk.js": "/agroregistro/static/js/455.86767fc4.chunk.js",
@@ -9,7 +9,7 @@
     "static/media/Logo_AgroRegistro.png": "/agroregistro/static/media/Logo_AgroRegistro.d8b6ed26a31e2fd06d1c.png",
     "index.html": "/agroregistro/index.html",
     "main.6644bc53.css.map": "/agroregistro/static/css/main.6644bc53.css.map",
-    "main.5fcf03da.js.map": "/agroregistro/static/js/main.5fcf03da.js.map",
+    "main.21ae7bc9.js.map": "/agroregistro/static/js/main.21ae7bc9.js.map",
     "239.bbdc3c20.chunk.js.map": "/agroregistro/static/js/239.bbdc3c20.chunk.js.map",
     "977.641bd355.chunk.js.map": "/agroregistro/static/js/977.641bd355.chunk.js.map",
     "455.86767fc4.chunk.js.map": "/agroregistro/static/js/455.86767fc4.chunk.js.map",
@@ -17,6 +17,6 @@
   },
   "entrypoints": [
     "static/css/main.6644bc53.css",
-    "static/js/main.5fcf03da.js"
+    "static/js/main.21ae7bc9.js"
   ]
 }
