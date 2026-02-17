@@ -204,20 +204,6 @@ export default function HistoricoAplicaciones({
     // Primero aplico lo que tengas en filtrar (fechas, lote, insumo, proveedores, etc.)
     let filtrados = filtrar(registros, filtros);
 
-    // ✅ Filtro local por Orden (por si filtrar todavía no lo contempla)
-    if (filtros.orden_carga && filtros.orden_carga !== "todos") {
-      filtrados = filtrados.filter(
-        (r) => String(r.orden_carga ?? "") === String(filtros.orden_carga)
-      );
-    }
-
-    // ✅ Filtro local por Tambo (por si filtrar todavía no lo contempla)
-    if (filtros.id_tambo && filtros.id_tambo !== "todos") {
-      filtrados = filtrados.filter(
-        (r) => String(r.tambo_aplicacion ?? "") === String(filtros.id_tambo)
-      );
-    }
-
     // Búsqueda libre
     const q = norm(filtros.texto).trim();
     if (q) {

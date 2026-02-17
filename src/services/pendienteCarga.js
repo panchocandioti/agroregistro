@@ -1,77 +1,165 @@
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-const n = (x) => {
-  const v = parseFloat(String(x ?? "").replace(",", "."));
+const toNum = (x) => {
+  if (x == null) return 0;
+  const v = parseFloat(String(x).replace(",", "."));
   return Number.isFinite(v) ? v : 0;
 };
 
 // Formato: 1 fila x tratamiento x lote x insumo
 export function exportPendienteCargaPorAplicacionXlsx({
-  aplicacion,          // objeto completo del histórico
-  lotesIndex,          // Map(id_lote -> {nombre_lote, ...})  (opcional)
-  insumosIndex,        // Map(id_insumo -> {nombre_insumo, ...}) (opcional)
-  proveedoresIndex,    // Map(id_proveedor -> {nombre_proveedor, ...}) (opcional)
-  nombreArchivo,       // opcional
+  aplicacion,
+  tambosIndex,
+  lotesIndex,
+  insumosIndex,
+  proveedoresIndex,
+  nombreArchivo,
 }) {
   if (!aplicacion) throw new Error("Falta la aplicación.");
 
-  const provServNom =
-    proveedoresIndex?.get(aplicacion.id_prov_serv)?.nombre_proveedor ?? aplicacion.id_prov_serv ?? "";
-  const provInsNom =
-    proveedoresIndex?.get(aplicacion.id_prov_ins)?.nombre_proveedor ?? aplicacion.id_prov_ins ?? "";
+  // Proveedores
+  const nombre_prov_serv =
+    proveedoresIndex?.get(aplicacion.id_prov_serv)?.nombre_proveedor ??
+    aplicacion.id_prov_serv ??
+    "";
+
+  const nombre_prov_ins =
+    proveedoresIndex?.get(aplicacion.id_prov_ins)?.nombre_proveedor ??
+    aplicacion.id_prov_ins ??
+    "";
+
+  // Tambo (en JSON: tambo_aplicacion es el ID)
+  const id_tambo = aplicacion.tambo_aplicacion ?? "";
+  const tamboCat = tambosIndex?.get(id_tambo);
+  const nombre_tambo = tamboCat?.nombre_tambo ?? id_tambo ?? "";
+  const codigo_tambo = tamboCat?.codigo_tambo ?? "";
 
   const rows = [];
-
   const tratamientos = Array.isArray(aplicacion.tratamientos) ? aplicacion.tratamientos : [];
 
   tratamientos.forEach((t, idxTrat) => {
     const lotes = Array.isArray(t.lotes) ? t.lotes : [];
     const insumos = Array.isArray(t.insumos) ? t.insumos : [];
 
-    lotes.forEach((l) => {
-      const haLote = n(l.superficie);
+    // Si faltan lotes o insumos, genero filas “vacías” para no perder el tratamiento
+    const lotesIter = lotes.length ? lotes : [null];
+    const insumosIter = insumos.length ? insumos : [null];
 
-      const loteNom =
-        lotesIndex?.get(l.id_lote)?.nombre_lote ?? l.nombre_lote ?? l.id_lote ?? "";
+    lotesIter.forEach((l) => {
+      const id_lote = l?.id_lote ?? "";
+      const loteCat = lotesIndex?.get(id_lote);
 
-      insumos.forEach((i) => {
-        const insNom =
-          insumosIndex?.get(i.id_insumo)?.nombre_insumo ?? i.nombre_insumo ?? i.id_insumo ?? "";
+      const nombre_lote =
+        loteCat?.nombre_lote ?? l?.nombre_lote ?? id_lote ?? "";
 
-        const dosis = n(i.dosis); // puede venir como string
-        const cantidadTotalLote =
-          haLote > 0 && dosis > 0 ? Number((dosis * haLote).toFixed(2)) : "";
+      // cultivo / id_cultivo del catálogo de lotes
+      const cultivo = loteCat?.cultivo ?? "";
+      const id_cultivo = loteCat?.id_cultivo ?? "";
+
+      // ✅ 1) Superficie por lote + nuevo encabezado
+      const tratamiento_superficie_lote = l ? toNum(l.superficie) : 0;
+
+      insumosIter.forEach((i) => {
+        const id_insumo = i?.id_insumo ?? "";
+        const insCat = insumosIndex?.get(id_insumo);
+
+        const nombre_insumo =
+          insCat?.nombre_insumo ?? i?.nombre_insumo ?? id_insumo ?? "";
+
+        // Dosis numérica
+        const tratamiento_insumo_dosis = i ? toNum(i.dosis) : 0;
+
+        // ✅ 2) Cantidad aplicada al lote (dosis * superficie_lote) + nuevo encabezado
+        const bruto =
+          Number(tratamiento_insumo_dosis * tratamiento_superficie_lote);
+
+        const tratamiento_insumo_cantidad_lote =
+          tratamiento_superficie_lote > 0 && tratamiento_insumo_dosis > 0
+            ? Math.round(bruto * 10) / 10
+            : 0;
 
         rows.push({
           id_aplicacion: aplicacion.id_aplicacion,
-          fecha_aplicacion: aplicacion.fecha_aplicacion, // YYYY-MM-DD (ideal para sistemas)
-          proveedor_servicio: provServNom,
-          proveedor_servicio_id: aplicacion.id_prov_serv,
-          proveedor_insumos: provInsNom,
-          proveedor_insumos_id: aplicacion.id_prov_ins,
+          idx_tratamiento: idxTrat,
 
-          tratamiento_nro: idxTrat + 1,
-          observaciones: t.observaciones ?? "",
+          orden_carga: aplicacion.orden_carga ?? "",
+          fecha_aplicacion: aplicacion.fecha_aplicacion ?? "",
 
-          lote: loteNom,
-          lote_id: l.id_lote,
-          hectareas_lote: haLote,
+          nombre_prov_ins,
+          id_prov_ins: aplicacion.id_prov_ins ?? "",
 
-          insumo: insNom,
-          insumo_id: i.id_insumo,
-          unidad_dosis: i.unidad_dosis ?? "",
-          unidad_total: i.unidad_total ?? "",
+          nombre_prov_serv,
+          id_prov_serv: aplicacion.id_prov_serv ?? "",
 
-          dosis: i.dosis ?? "", // dejo string para que no pierdas formato
-          cantidad_total_lote: cantidadTotalLote,
+          observaciones_aplicacion: t?.observaciones ?? "",
+
+          nombre_tambo,
+          id_tambo,
+          codigo_tambo,
+
+          nombre_lote,
+          id_lote,
+          cultivo,
+          id_cultivo,
+
+          nombre_insumo,
+          id_insumo,
+
+          // ✅ nuevos nombres
+          tratamiento_superficie_lote,
+          tratamiento_insumo_dosis,
+          tratamiento_insumo_cantidad_lote,
+
+          unidad_dosis: i?.unidad_dosis ?? "",
+          unidad_total: i?.unidad_total ?? "",
         });
       });
     });
   });
 
+  // ✅ Header en el orden exacto con los nuevos nombres
+  const header = [
+    "id_aplicacion",
+    "idx_tratamiento",
+    "orden_carga",
+    "fecha_aplicacion",
+    "nombre_prov_ins",
+    "id_prov_ins",
+    "nombre_prov_serv",
+    "id_prov_serv",
+    "observaciones_aplicacion",
+    "nombre_tambo",
+    "id_tambo",
+    "codigo_tambo",
+    "nombre_lote",
+    "id_lote",
+    "cultivo",
+    "id_cultivo",
+    "nombre_insumo",
+    "id_insumo",
+    "tratamiento_superficie_lote",
+    "tratamiento_insumo_dosis",
+    "tratamiento_insumo_cantidad_lote",
+    "unidad_dosis",
+    "unidad_total",
+  ];
+
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const ws = XLSX.utils.json_to_sheet(rows, { header });
+
+  // (opcional) autoajuste de columnas (si lo estabas usando)
+  const colWidths = header.map((col) => {
+    let maxLen = col.length;
+    rows.forEach((row) => {
+      const val = row[col];
+      const len = val == null ? 0 : String(val).length;
+      if (len > maxLen) maxLen = len;
+    });
+    return { wch: Math.min(maxLen + 2, 60) };
+  });
+  ws["!cols"] = colWidths;
+
   XLSX.utils.book_append_sheet(wb, ws, "PENDIENTE_CARGA");
 
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -85,5 +173,5 @@ export function exportPendienteCargaPorAplicacionXlsx({
 
   saveAs(blob, fname);
 
-  return rows.length; // por si querés mostrar "X filas generadas"
+  return rows.length;
 }
