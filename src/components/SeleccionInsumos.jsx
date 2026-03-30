@@ -52,7 +52,7 @@ function SeleccionInsumos({
 
     return (
         <div style={{ marginTop: "1rem" }}>
-            <h5>Insumos del tratamiento</h5>
+            <h5>Insumos de labor/tratamiento</h5>
 
             {/* Selector + agregar */}
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
@@ -97,7 +97,7 @@ function SeleccionInsumos({
                             >
                                 {/* Dosis */}
                                 <div>
-                                    <label>Dosis</label>
+                                    <label>Densidad/Dosis</label>
                                     <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                                         <input
                                             type="number"

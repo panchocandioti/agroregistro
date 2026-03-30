@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
 import Tratamiento from "./Tratamiento";
 import ResumenAplicacion from "./ResumenAplicacion";
+import { mayusculaInicial } from "../services/historicoService";
 
 function AltaAplicacion({
     tambos,
     lotes,
     insumos,
     proveedores,
+    trabajos,
 
-    // ✅ nuevo
     modo = "alta", // "alta" | "edicion"
     aplicacionInicial = null, // objeto completo desde histórico
     onConfirmar, // (aplicacion) => void
 
-    // ✅ compatibilidad con tu implementación actual
+    // compatibilidad con implementación anterior
     onGuardarAplicacion, // (aplicacionNueva) => void
 
     // opcional, para cerrar editor desde histórico
@@ -24,6 +25,7 @@ function AltaAplicacion({
     const [tamboAplicacion, setTamboAplicacion] = useState("");
     const [proveedorInsumos, setProveedorInsumos] = useState("");
     const [proveedorServicios, setProveedorServicios] = useState("");
+    const [idTrabajo, setIdTrabajo] = useState("");
 
     const [mostrarResumenAplicacion, setMostrarResumenAplicacion] = useState(false);
 
@@ -31,11 +33,9 @@ function AltaAplicacion({
         { lotes: [], insumos: [], observaciones: "" },
     ]);
 
-    // ✅ para edición: mantener identidad
     const [idAplicacion, setIdAplicacion] = useState("");
     const [createdAt, setCreatedAt] = useState("");
 
-    // ✅ Precarga cuando abrís en modo edición
     useEffect(() => {
         if (modo !== "edicion" || !aplicacionInicial) return;
 
@@ -46,21 +46,22 @@ function AltaAplicacion({
         setTamboAplicacion(aplicacionInicial.tambo_aplicacion || "");
         setProveedorServicios(aplicacionInicial.id_prov_serv || "");
         setProveedorInsumos(aplicacionInicial.id_prov_ins || "");
+        setIdTrabajo(String(aplicacionInicial.id_trabajo || ""));
 
         setTratamientos(
-            Array.isArray(aplicacionInicial.tratamientos) && aplicacionInicial.tratamientos.length > 0
+            Array.isArray(aplicacionInicial.tratamientos) &&
+                aplicacionInicial.tratamientos.length > 0
                 ? aplicacionInicial.tratamientos
                 : [{ lotes: [], insumos: [], observaciones: "" }]
         );
 
-        // opcional: abrir resumen al entrar
         setMostrarResumenAplicacion(true);
     }, [modo, aplicacionInicial]);
 
     const agregarTratamiento = () => {
         setTratamientos((prev) => [
             ...prev,
-            { lotes: [], insumos: [], observaciones: "" }, // ✅ consistente
+            { lotes: [], insumos: [], observaciones: "" },
         ]);
     };
 
@@ -68,23 +69,62 @@ function AltaAplicacion({
         setTratamientos((prev) => prev.filter((_, i) => i !== index));
     };
 
+    const esLabranza = String(idTrabajo) === "71";
+
+    const handleChangeTipoTrabajo = (nuevoIdTrabajo) => {
+        setIdTrabajo(String(nuevoIdTrabajo));
+
+        if (String(nuevoIdTrabajo) === "71") {
+            setProveedorInsumos("");
+        }
+    };
+
+    const tarea =
+        trabajos.find((t) => String(t.id_trabajo) === String(idTrabajo))
+            ?.tipo_trabajo || "";
+
+    const validarTrabajo = () => {
+        if (!ordenCarga) return "Debe ingresar la orden de trabajo.";
+        if (!fechaAplicacion) return "Debe ingresar la fecha.";
+        if (!tamboAplicacion) return "Debe seleccionar el tambo.";
+        if (!idTrabajo) return "Debe seleccionar el tipo de trabajo.";
+        if (!proveedorServicios) return "Debe seleccionar el proveedor de servicios.";
+
+        if (!esLabranza && !proveedorInsumos) {
+            return "Debe seleccionar el proveedor de insumos.";
+        }
+
+        return null;
+    };
+
     const handleMostrarResumen = () => {
+        const error = validarTrabajo();
+        if (error) {
+            alert(error);
+            return;
+        }
         setMostrarResumenAplicacion((x) => !x);
     };
 
     const confirmarGuardar = () => {
+        const error = validarTrabajo();
+        if (error) {
+            alert(error);
+            return;
+        }
+
         const now = new Date().toISOString();
         const idNuevo = `${now}_${Math.random().toString(16).slice(2, 8)}`;
 
         const aplicacion = {
-            // ✅ si es edición, mantenemos id/created_at
             id_aplicacion: modo === "edicion" ? idAplicacion : idNuevo,
             created_at: modo === "edicion" ? createdAt : now,
             orden_carga: ordenCarga.trim(),
             fecha_aplicacion: fechaAplicacion,
             tambo_aplicacion: tamboAplicacion,
+            id_trabajo: idTrabajo,
             id_prov_serv: proveedorServicios,
-            id_prov_ins: proveedorInsumos,
+            id_prov_ins: esLabranza ? "" : proveedorInsumos,
             tratamientos,
         };
 
@@ -92,45 +132,58 @@ function AltaAplicacion({
         if (typeof cb === "function") cb(aplicacion);
 
         if (modo === "edicion") {
-            // cerrar editor
             if (typeof onCancelar === "function") onCancelar();
             return;
         }
 
-        // modo alta
         setOrdenCarga("");
         setFechaAplicacion("");
         setTamboAplicacion("");
+        setIdTrabajo("");
         setProveedorInsumos("");
         setProveedorServicios("");
         setTratamientos([{ lotes: [], insumos: [], observaciones: "" }]);
-        handleMostrarResumen();
+        setMostrarResumenAplicacion(false);
     };
 
-    const tratamientosCompletos = tratamientos.length > 0 && tratamientos.every(t =>
-        (t.lotes?.length || 0) > 0 && (t.insumos?.length || 0) > 0
-    );
+    const tratamientosCompletos =
+        tratamientos.length > 0 &&
+        tratamientos.every((t) =>
+            esLabranza
+                ? (t.lotes?.length || 0) > 0
+                : (t.lotes?.length || 0) > 0 && (t.insumos?.length || 0) > 0
+        );
 
     return (
         <div style={{ border: "1px solid #ccc", padding: "1rem", marginTop: "1rem" }}>
             <div style={{ border: "2px solid #999", padding: "1rem", marginBottom: "1.5rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "1rem",
+                    }}
+                >
                     <h3 style={{ margin: 0 }}>
-                        {modo === "edicion" ? "Editar aplicación" : "Datos de la aplicación"}
+                        {modo === "edicion" ? "Editar trabajo" : "Datos del trabajo"}
                     </h3>
 
                     {modo === "edicion" && (
-                        <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onCancelar}>
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm"
+                            onClick={onCancelar}
+                        >
                             Cancelar edición
                         </button>
                     )}
                 </div>
 
                 <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginTop: "1rem" }}>
-
-                    {/* Orden de carga */}
                     <div>
-                        <label>Orden de carga</label><br />
+                        <label>Orden de trabajo</label>
+                        <br />
                         <input
                             type="text"
                             className="form-control"
@@ -139,9 +192,9 @@ function AltaAplicacion({
                         />
                     </div>
 
-                    {/* Fecha */}
                     <div>
-                        <label>Fecha</label><br />
+                        <label>Fecha</label>
+                        <br />
                         <input
                             type="date"
                             value={fechaAplicacion}
@@ -149,9 +202,9 @@ function AltaAplicacion({
                         />
                     </div>
 
-                    {/* Tambo */}
                     <div>
-                        <label>Tambo</label><br />
+                        <label>Tambo</label>
+                        <br />
                         <select
                             value={tamboAplicacion}
                             onChange={(e) => setTamboAplicacion(e.target.value)}
@@ -165,47 +218,70 @@ function AltaAplicacion({
                         </select>
                     </div>
 
-                    {/* Proveedor insumos */}
                     <div>
-                        <label>Proveedor de insumos</label><br />
+                        <label>Tipo de trabajo</label>
+                        <br />
                         <select
-                            value={proveedorInsumos}
-                            onChange={(e) => setProveedorInsumos(e.target.value)}
+                            value={idTrabajo}
+                            onChange={(e) => handleChangeTipoTrabajo(e.target.value)}
                         >
                             <option value="">Seleccionar</option>
-                            {proveedores.map((p) => (
-                                <option key={p.id_proveedor} value={p.id_proveedor}>
-                                    {p.nombre_proveedor}
+                            {trabajos.map((t) => (
+                                <option key={t.id_trabajo} value={String(t.id_trabajo)}>
+                                    {mayusculaInicial(t.tipo_trabajo)}
                                 </option>
                             ))}
                         </select>
                     </div>
 
-                    {/* Proveedor servicios */}
-                    <div>
-                        <label>Proveedor de servicios</label><br />
-                        <select
-                            value={proveedorServicios}
-                            onChange={(e) => setProveedorServicios(e.target.value)}
-                        >
-                            <option value="">Seleccionar</option>
-                            {proveedores.map((p) => (
-                                <option key={p.id_proveedor} value={p.id_proveedor}>
-                                    {p.nombre_proveedor}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    {tamboAplicacion && fechaAplicacion && idTrabajo && (
+                        <div>
+                            {!esLabranza && (
+                                <div>
+                                    <label>Proveedor de insumos</label>
+                                    <br />
+                                    <select
+                                        value={proveedorInsumos}
+                                        onChange={(e) => setProveedorInsumos(e.target.value)}
+                                    >
+                                        <option value="">Seleccionar</option>
+                                        {proveedores.map((p) => (
+                                            <option key={p.id_proveedor} value={p.id_proveedor}>
+                                                {p.nombre_proveedor}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div>
+                                <label>Proveedor de servicios</label>
+                                <br />
+                                <select
+                                    value={proveedorServicios}
+                                    onChange={(e) => setProveedorServicios(e.target.value)}
+                                >
+                                    <option value="">Seleccionar</option>
+                                    {proveedores.map((p) => (
+                                        <option key={p.id_proveedor} value={p.id_proveedor}>
+                                            {p.nombre_proveedor}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {tamboAplicacion && fechaAplicacion && proveedorInsumos && proveedorServicios && (
+            {tamboAplicacion && fechaAplicacion && idTrabajo && proveedorServicios && (
                 <div>
-                    <h3>Tratamientos</h3>
+                    <h3>Trabajos de {tarea}</h3>
 
                     {tratamientos.map((tratamiento, index) => (
                         <div key={index}>
                             <Tratamiento
+                                tarea={tarea}
                                 numero={index + 1}
                                 tratamiento={tratamiento}
                                 setTratamiento={(fn) =>
@@ -219,14 +295,14 @@ function AltaAplicacion({
 
                             {tratamientos.length > 1 && (
                                 <button type="button" onClick={() => quitarTratamiento(index)}>
-                                    Quitar tratamiento
+                                    Quitar {tarea}
                                 </button>
                             )}
                         </div>
                     ))}
 
                     <button type="button" onClick={agregarTratamiento}>
-                        Agregar otro tratamiento
+                        Agregar {tarea}
                     </button>
                 </div>
             )}
@@ -234,7 +310,9 @@ function AltaAplicacion({
             <hr />
 
             <button type="button" onClick={handleMostrarResumen}>
-                {mostrarResumenAplicacion ? "Ocultar resumen aplicación" : "Mostrar resumen aplicación"}
+                {mostrarResumenAplicacion
+                    ? "Ocultar resumen del trabajo"
+                    : "Mostrar resumen del trabajo"}
             </button>
 
             {mostrarResumenAplicacion && (
@@ -242,6 +320,8 @@ function AltaAplicacion({
                     ordenCarga={ordenCarga}
                     fechaAplicacion={fechaAplicacion}
                     tamboAplicacion={tamboAplicacion}
+                    trabajoId={idTrabajo}
+                    trabajos={trabajos}
                     proveedorServiciosId={proveedorServicios}
                     proveedorInsumosId={proveedorInsumos}
                     proveedores={proveedores}
@@ -252,12 +332,15 @@ function AltaAplicacion({
 
             {mostrarResumenAplicacion && tratamientosCompletos && (
                 <div className="text-end">
-                    <button type="button" onClick={confirmarGuardar} className="btn btn-success">
-                        {modo === "edicion" ? "Guardar cambios" : "Guardar aplicación"}
+                    <button
+                        type="button"
+                        onClick={confirmarGuardar}
+                        className="btn btn-success"
+                    >
+                        {modo === "edicion" ? "Guardar cambios" : "Guardar trabajos"}
                     </button>
                 </div>
             )}
-
         </div>
     );
 }

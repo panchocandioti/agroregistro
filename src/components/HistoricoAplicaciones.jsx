@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { formatFecha, aplanarAplicaciones, filtrar } from "../services/historicoService";
 import ResumenAplicacion from "./ResumenAplicacion";
 import AltaAplicacion from "./AltaAplicacion";
+import { mayusculaInicial } from "../services/historicoService";
 
 export default function HistoricoAplicaciones({
   historico,
@@ -9,6 +10,7 @@ export default function HistoricoAplicaciones({
   lotes,
   insumos,
   proveedores,
+  trabajos,
   onBorrarAplicacion,
   onEditarAplicacion,
 }) {
@@ -17,6 +19,7 @@ export default function HistoricoAplicaciones({
     fechaDesde: "",
     fechaHasta: "",
     id_tambo: "todos",
+    id_trabajo: "todos",
     id_lote: "todos",
     id_insumo: "todos",
     id_prov_serv: "todos",
@@ -26,40 +29,61 @@ export default function HistoricoAplicaciones({
 
   const [idAplicacionSeleccionada, setIdAplicacionSeleccionada] = useState(null);
   const [modoEdicion, setModoEdicion] = useState(false);
-  const [borrador, setBorrador] = useState(null);
 
   // Índices de catálogos
   const idxTambos = useMemo(
     () => new Map((tambos ?? []).map((t) => [String(t.id_tambo), t])),
     [tambos]
   );
+
   const idxLotes = useMemo(
     () => new Map((lotes ?? []).map((l) => [String(l.id_lote), l])),
     [lotes]
   );
+
   const idxInsumos = useMemo(
     () => new Map((insumos ?? []).map((i) => [String(i.id_insumo), i])),
     [insumos]
   );
+
   const idxProveedores = useMemo(
     () => new Map((proveedores ?? []).map((p) => [String(p.id_proveedor), p])),
     [proveedores]
   );
 
+  const idxTrabajos = useMemo(
+    () => new Map((trabajos ?? []).map((t) => [String(t.id_trabajo), t])),
+    [trabajos]
+  );
+
   const nombreTambo = (id_tambo, fallback) =>
     idxTambos.get(String(id_tambo))?.nombre_tambo ?? fallback ?? id_tambo ?? "";
+
   const nombreLote = (id_lote, fallback) =>
     idxLotes.get(String(id_lote))?.nombre_lote ?? fallback ?? id_lote ?? "";
+
   const nombreInsumo = (id_insumo, fallback) =>
     idxInsumos.get(String(id_insumo))?.nombre_insumo ?? fallback ?? id_insumo ?? "";
+
   const nombreProveedor = (id_proveedor) =>
     idxProveedores.get(String(id_proveedor))?.nombre_proveedor ?? id_proveedor ?? "";
 
-  // ✅ Índices: id_aplicacion -> campos reales (salen del JSON)
+  const nombreTrabajo = (id_trabajo, fallback) =>
+    idxTrabajos.get(String(id_trabajo))?.tipo_trabajo ?? fallback ?? id_trabajo ?? "";
+
+  // Índices: id_aplicacion -> campos reales
   const tamboPorAplicacion = useMemo(() => {
     const m = new Map();
     (historico?.aplicaciones ?? []).forEach((a) => {
       m.set(String(a.id_aplicacion), a.tambo_aplicacion ?? "");
+    });
+    return m;
+  }, [historico]);
+
+  const trabajoPorAplicacion = useMemo(() => {
+    const m = new Map();
+    (historico?.aplicaciones ?? []).forEach((a) => {
+      m.set(String(a.id_aplicacion), a.id_trabajo ?? "");
     });
     return m;
   }, [historico]);
@@ -72,34 +96,30 @@ export default function HistoricoAplicaciones({
     return m;
   }, [historico]);
 
-  // ✅ Registros aplanados + enriquecidos (tambo_aplicacion, orden_carga, fecha)
+  // Registros aplanados + enriquecidos
   const registros = useMemo(() => {
     const arr = aplanarAplicaciones(historico) ?? [];
 
     return arr.map((r) => {
       const idApp = String(r.id_aplicacion ?? "");
 
-      const tamboA =
-        r.tambo_aplicacion ?? tamboPorAplicacion.get(idApp) ?? "";
-
-      const orden =
-        r.orden_carga ?? ordenPorAplicacion.get(idApp) ?? "";
-
-      // Normalizo fecha por si el aplanado no usa "fecha"
+      const tamboA = r.tambo_aplicacion ?? tamboPorAplicacion.get(idApp) ?? "";
+      const orden = r.orden_carga ?? ordenPorAplicacion.get(idApp) ?? "";
+      const idTrabajo = String(r.id_trabajo ?? trabajoPorAplicacion.get(idApp) ?? "");
       const fecha = r.fecha ?? r.fecha_aplicacion ?? "";
 
       return {
         ...r,
         tambo_aplicacion: tamboA,
         orden_carga: orden,
+        id_trabajo: idTrabajo,
         fecha,
       };
     });
-  }, [historico, tamboPorAplicacion, ordenPorAplicacion]);
+  }, [historico, tamboPorAplicacion, trabajoPorAplicacion, ordenPorAplicacion]);
 
   // Opciones (solo valores presentes en el histórico)
   const opciones = useMemo(() => {
-    // ===== Órdenes presentes =====
     const ordenSet = new Set(
       registros
         .map((r) => r.orden_carga)
@@ -107,11 +127,10 @@ export default function HistoricoAplicaciones({
         .map((v) => String(v).trim())
     );
 
-    // Ordeno “inteligente”: primero numéricas, luego texto, dentro de cada grupo ascendente
     const ordenesOpc = Array.from(ordenSet).sort((a, b) => {
       const na = Number(a);
       const nb = Number(b);
-      const aNum = Number.isFinite(na) && String(na) === String(Number(a)); // heurística simple
+      const aNum = Number.isFinite(na) && String(na) === String(Number(a));
       const bNum = Number.isFinite(nb) && String(nb) === String(Number(b));
       if (aNum && bNum) return na - nb;
       if (aNum && !bNum) return -1;
@@ -119,7 +138,6 @@ export default function HistoricoAplicaciones({
       return a.localeCompare(b, "es");
     });
 
-    // ===== Tambos presentes =====
     const tambosSet = new Set(
       registros
         .map((r) => r.tambo_aplicacion)
@@ -134,7 +152,6 @@ export default function HistoricoAplicaciones({
       }))
       .sort((a, b) => (a.nombre_tambo ?? "").localeCompare(b.nombre_tambo ?? "", "es"));
 
-    // ===== Lotes presentes =====
     const lotesMap = new Map();
     registros.forEach((r) => {
       (r.lotes ?? []).forEach((l) => {
@@ -149,11 +166,11 @@ export default function HistoricoAplicaciones({
         }
       });
     });
+
     const lotesOpc = Array.from(lotesMap.values()).sort((a, b) =>
       (a.nombre_lote ?? "").localeCompare(b.nombre_lote ?? "", "es")
     );
 
-    // ===== Insumos presentes =====
     const insumosMap = new Map();
     registros.forEach((r) => {
       (r.insumos ?? []).forEach((i) => {
@@ -168,13 +185,18 @@ export default function HistoricoAplicaciones({
         }
       });
     });
+
     const insumosOpc = Array.from(insumosMap.values()).sort((a, b) =>
       (a.nombre_insumo ?? "").localeCompare(b.nombre_insumo ?? "", "es")
     );
 
-    // ===== Proveedores presentes =====
-    const provServSet = new Set(registros.map((r) => r.id_prov_serv).filter(Boolean).map(String));
-    const provInsSet = new Set(registros.map((r) => r.id_prov_ins).filter(Boolean).map(String));
+    const provServSet = new Set(
+      registros.map((r) => r.id_prov_serv).filter(Boolean).map(String)
+    );
+
+    const provInsSet = new Set(
+      registros.map((r) => r.id_prov_ins).filter(Boolean).map(String)
+    );
 
     const provServOpc = Array.from(provServSet)
       .map((id) => ({
@@ -190,8 +212,15 @@ export default function HistoricoAplicaciones({
       }))
       .sort((a, b) => (a.nombre_proveedor ?? "").localeCompare(b.nombre_proveedor ?? "", "es"));
 
-    return { ordenesOpc, tambosOpc, lotesOpc, insumosOpc, provServOpc, provInsOpc };
-  }, [registros, idxTambos, idxLotes, idxInsumos, idxProveedores]);
+    return {
+      ordenesOpc,
+      tambosOpc,
+      lotesOpc,
+      insumosOpc,
+      provServOpc,
+      provInsOpc,
+    };
+  }, [registros, idxTambos, idxLotes, idxInsumos, idxProveedores, idxTrabajos]);
 
   const norm = (s) =>
     (s ?? "")
@@ -201,10 +230,14 @@ export default function HistoricoAplicaciones({
       .replace(/[\u0300-\u036f]/g, "");
 
   const resultados = useMemo(() => {
-    // Primero aplico lo que tengas en filtrar (fechas, lote, insumo, proveedores, etc.)
     let filtrados = filtrar(registros, filtros);
 
-    // Búsqueda libre
+    if (filtros.id_trabajo !== "todos") {
+      filtrados = filtrados.filter(
+        (r) => String(r.id_trabajo ?? "") === String(filtros.id_trabajo)
+      );
+    }
+
     const q = norm(filtros.texto).trim();
     if (q) {
       filtrados = filtrados.filter((r) => {
@@ -212,11 +245,19 @@ export default function HistoricoAplicaciones({
           r.observaciones,
           r.orden_carga,
           r.tambo_aplicacion,
+          r.id_trabajo,
+          nombreTrabajo(r.id_trabajo),
           nombreTambo(r.tambo_aplicacion),
           nombreProveedor(r.id_prov_serv),
           nombreProveedor(r.id_prov_ins),
-          ...(r.lotes ?? []).flatMap((l) => [l.id_lote, nombreLote(l.id_lote, l.nombre_lote)]),
-          ...(r.insumos ?? []).flatMap((i) => [i.id_insumo, nombreInsumo(i.id_insumo, i.nombre_insumo)]),
+          ...(r.lotes ?? []).flatMap((l) => [
+            l.id_lote,
+            nombreLote(l.id_lote, l.nombre_lote),
+          ]),
+          ...(r.insumos ?? []).flatMap((i) => [
+            i.id_insumo,
+            nombreInsumo(i.id_insumo, i.nombre_insumo),
+          ]),
         ].join(" ");
 
         return norm(texto).includes(q);
@@ -226,7 +267,7 @@ export default function HistoricoAplicaciones({
     return [...filtrados].sort((a, b) =>
       a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0
     );
-  }, [registros, filtros, idxTambos, idxLotes, idxInsumos, idxProveedores]);
+  }, [registros, filtros, idxTrabajos, idxTambos, idxLotes, idxInsumos, idxProveedores]);
 
   const limpiarFiltros = () => {
     setFiltros({
@@ -234,6 +275,7 @@ export default function HistoricoAplicaciones({
       fechaDesde: "",
       fechaHasta: "",
       id_tambo: "todos",
+      id_trabajo: "todos",
       id_lote: "todos",
       id_insumo: "todos",
       id_prov_serv: "todos",
@@ -254,6 +296,7 @@ export default function HistoricoAplicaciones({
 
   const resumenInsumoSeleccionado = useMemo(() => {
     if (filtros.id_insumo === "todos") return null;
+
     const id = String(filtros.id_insumo);
     const nombre = idxInsumos.get(id)?.nombre_insumo ?? id;
 
@@ -273,12 +316,12 @@ export default function HistoricoAplicaciones({
 
   const aplicacionSeleccionada = useMemo(() => {
     if (!idAplicacionSeleccionada) return null;
-    return (historico?.aplicaciones ?? []).find(
-      (a) => a.id_aplicacion === idAplicacionSeleccionada
-    ) || null;
+    return (
+      (historico?.aplicaciones ?? []).find(
+        (a) => a.id_aplicacion === idAplicacionSeleccionada
+      ) || null
+    );
   }, [historico, idAplicacionSeleccionada]);
-
-  const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 
   return (
     <div className="container-fluid p-0">
@@ -295,7 +338,6 @@ export default function HistoricoAplicaciones({
             <hr />
 
             <div className="row g-2">
-              {/* ✅ Orden de carga */}
               <div className="col-12 col-md-3">
                 <label className="form-label"><b>Orden de carga</b></label>
                 <select
@@ -331,6 +373,22 @@ export default function HistoricoAplicaciones({
               </div>
 
               <div className="col-12 col-md-3">
+                <label className="form-label"><b>Tipo de trabajo</b></label>
+                <select
+                  className="form-select"
+                  value={String(filtros.id_trabajo)}
+                  onChange={(e) => setFiltros((f) => ({ ...f, id_trabajo: e.target.value }))}
+                >
+                  <option value="todos">Todos</option>
+                  {(trabajos ?? []).map((t) => (
+                    <option key={t.id_trabajo} value={String(t.id_trabajo)}>
+                      {mayusculaInicial(t.tipo_trabajo)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-12 col-md-3">
                 <label className="form-label"><b>Tambo</b></label>
                 <select
                   className="form-select"
@@ -355,7 +413,9 @@ export default function HistoricoAplicaciones({
                 >
                   <option value="todos">Todos</option>
                   {opciones.lotesOpc.map((l) => (
-                    <option key={l.id_lote} value={l.id_lote}>{l.nombre_lote}</option>
+                    <option key={l.id_lote} value={l.id_lote}>
+                      {l.nombre_lote}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -369,7 +429,9 @@ export default function HistoricoAplicaciones({
                 >
                   <option value="todos">Todos</option>
                   {opciones.insumosOpc.map((i) => (
-                    <option key={i.id_insumo} value={i.id_insumo}>{i.nombre_insumo}</option>
+                    <option key={i.id_insumo} value={i.id_insumo}>
+                      {i.nombre_insumo}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -383,7 +445,9 @@ export default function HistoricoAplicaciones({
                 >
                   <option value="todos">Todos</option>
                   {opciones.provServOpc.map((p) => (
-                    <option key={p.id_proveedor} value={p.id_proveedor}>{p.nombre_proveedor}</option>
+                    <option key={p.id_proveedor} value={p.id_proveedor}>
+                      {p.nombre_proveedor}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -397,7 +461,9 @@ export default function HistoricoAplicaciones({
                 >
                   <option value="todos">Todos</option>
                   {opciones.provInsOpc.map((p) => (
-                    <option key={p.id_proveedor} value={p.id_proveedor}>{p.nombre_proveedor}</option>
+                    <option key={p.id_proveedor} value={p.id_proveedor}>
+                      {p.nombre_proveedor}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -439,6 +505,7 @@ export default function HistoricoAplicaciones({
                     <tr>
                       <th>Orden</th>
                       <th>Fecha</th>
+                      <th>Trabajo</th>
                       <th>Tambo</th>
                       <th>Lotes</th>
                       <th>Insumos</th>
@@ -454,11 +521,16 @@ export default function HistoricoAplicaciones({
                       <tr key={`${r.id_aplicacion}_${r.idx_tratamiento ?? 0}`}>
                         <td style={{ whiteSpace: "nowrap" }}>{r.orden_carga ?? ""}</td>
                         <td style={{ whiteSpace: "nowrap" }}>{formatFecha(r.fecha)}</td>
-                        <td style={{ whiteSpace: "nowrap" }}>{nombreTambo(r.tambo_aplicacion)}</td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          {mayusculaInicial(nombreTrabajo(r.id_trabajo, "—"))}
+                        </td>
+                        <td>{nombreTambo(r.tambo_aplicacion)}</td>
 
                         <td>
                           {(r.lotes ?? []).map((l) => (
-                            <div key={l.id_lote}>{nombreLote(l.id_lote, l.nombre_lote)}</div>
+                            <div key={l.id_lote}>
+                              {nombreLote(l.id_lote, l.nombre_lote)}
+                            </div>
                           ))}
                         </td>
 
@@ -473,8 +545,29 @@ export default function HistoricoAplicaciones({
                           ))}
                         </td>
 
-                        <td style={{ whiteSpace: "nowrap" }}>{nombreProveedor(r.id_prov_serv)}</td>
-                        <td style={{ whiteSpace: "nowrap" }}>{nombreProveedor(r.id_prov_ins)}</td>
+                        <td
+                          style={{
+                            maxWidth: "120px",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={nombreProveedor(r.id_prov_serv)}
+                        >
+                          {nombreProveedor(r.id_prov_serv)}
+                        </td>
+
+                        <td
+                          style={{
+                            maxWidth: "120px",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={nombreProveedor(r.id_prov_ins)}
+                        >
+                          {nombreProveedor(r.id_prov_ins)}
+                        </td>
 
                         <td>{r.observaciones}</td>
 
@@ -529,14 +622,7 @@ export default function HistoricoAplicaciones({
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-primary"
-                  onClick={() => {
-                    const copia =
-                      typeof structuredClone === "function"
-                        ? structuredClone(aplicacionSeleccionada)
-                        : JSON.parse(JSON.stringify(aplicacionSeleccionada));
-                    setBorrador(copia);
-                    setModoEdicion(true);
-                  }}
+                  onClick={() => setModoEdicion(true)}
                 >
                   Editar
                 </button>
@@ -569,6 +655,8 @@ export default function HistoricoAplicaciones({
                   fechaAplicacion={aplicacionSeleccionada.fecha_aplicacion}
                   tamboAplicacion={aplicacionSeleccionada.tambo_aplicacion}
                   tambos={tambos}
+                  trabajoId={aplicacionSeleccionada.id_trabajo}
+                  trabajos={trabajos}
                   proveedorServiciosId={aplicacionSeleccionada.id_prov_serv}
                   proveedorInsumosId={aplicacionSeleccionada.id_prov_ins}
                   proveedores={proveedores}
@@ -582,6 +670,7 @@ export default function HistoricoAplicaciones({
                   lotes={lotes}
                   insumos={insumos}
                   proveedores={proveedores}
+                  trabajos={trabajos}
                   onConfirmar={(apEditada) => {
                     onEditarAplicacion(apEditada);
                     setModoEdicion(false);

@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import logoPng from "../multimedia/Logo_AgroRegistro.png"; // ajustá la ruta
+import logoPng from "../multimedia/Logo_AgroRegistro.png";
+import { mayusculaInicial } from "./historicoService";
 
 const toNum = (v) => {
   const n = parseFloat(v);
@@ -10,11 +11,10 @@ const toNum = (v) => {
 const fmt2 = (v) => toNum(v).toFixed(2);
 const fmt3 = (v) => toNum(v).toFixed(3);
 
-// Convierte una imagen (importada o URL) a DataURL para addImage
 async function loadImageAsDataUrl(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "anonymous"; // por si viene de una URL
+    img.crossOrigin = "anonymous";
     img.onload = () => {
       const canvas = document.createElement("canvas");
       canvas.width = img.naturalWidth;
@@ -28,14 +28,12 @@ async function loadImageAsDataUrl(src) {
   });
 }
 
-/**
- * Genera el PDF replicando tu ResumenAplicacion.jsx
- * Firma igual que el componente para que sea plug&play.
- */
 export async function exportResumenAplicacionPDF({
   ordenCarga,
   fechaAplicacion,
   tamboAplicacion,
+  trabajoId,
+  trabajos,
   proveedorServiciosId,
   proveedorInsumosId,
   proveedores,
@@ -46,12 +44,21 @@ export async function exportResumenAplicacionPDF({
   const provServ = (proveedores || []).find(
     (p) => String(p.id_proveedor) === String(proveedorServiciosId)
   );
+
   const provIns = (proveedores || []).find(
     (p) => String(p.id_proveedor) === String(proveedorInsumosId)
   );
+
   const tamboAplic = (tambos || []).find(
     (t) => String(t.id_tambo) === String(tamboAplicacion)
   );
+
+  const nombreTrabajo =
+    (trabajos || []).find(
+      (t) => String(t.id_trabajo) === String(trabajoId)
+    )?.tipo_trabajo || "";
+
+  const esLabranza = String(trabajoId) === "71";
 
   const formatFechaHora = (date = new Date()) => {
     const d = new Date(date);
@@ -93,49 +100,58 @@ export async function exportResumenAplicacionPDF({
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const marginX = 12;
 
-  // --- Logo (primera página) ---
-  // Tamaño sugerido: 14–18mm para que quede bien y no compita con el título
   const logoDataUrl = await loadImageAsDataUrl(logoPng);
   const pageWidth = doc.internal.pageSize.width;
 
-  const logoSize = 10; // mm (cuadrado)
+  const logoSize = 10;
   const logoX = pageWidth - marginX - logoSize;
-  const logoY = 7; // arriba
+  const logoY = 7;
 
   doc.addImage(logoDataUrl, "PNG", logoX, logoY, logoSize, logoSize);
 
-  // Título (lo corremos un poco para no chocar con el logo)
   doc.setFontSize(14);
-  doc.text("Resumen de la aplicación", marginX, 14);
+  doc.text(`Resumen del trabajo de ${nombreTrabajo}`, marginX, 14);
 
   autoTable(doc, {
     startY: 18,
     theme: "grid",
     styles: { fontSize: 8, cellPadding: 2 },
     margin: { left: marginX, right: marginX },
-    head: [["Orden", "Fecha", "Tambo"]],
+    head: [["Orden", "Fecha", "Tambo", "Tipo de trabajo"]],
     body: [[
       ordenCarga || "-",
       fechaAplicacion || "-",
       tamboAplic?.nombre_tambo || "-",
+      mayusculaInicial(nombreTrabajo) || "-",
     ]],
   });
 
   let y = doc.lastAutoTable.finalY + 5;
 
-  autoTable(doc, {
-    startY: y,
-    theme: "grid",
-    styles: { fontSize: 8, cellPadding: 2 },
-    margin: { left: marginX, right: marginX },
-    head: [["Prov. servicios", "Prov. insumos"]],
-    body: [[
-      provServ?.nombre_proveedor || "-",
-      provIns?.nombre_proveedor || "-",
-    ]],
-  });
+  if (esLabranza) {
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2 },
+      margin: { left: marginX, right: marginX },
+      head: [["Prov. servicios"]],
+      body: [[provServ?.nombre_proveedor || "-"]],
+    });
+  } else {
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2 },
+      margin: { left: marginX, right: marginX },
+      head: [["Prov. servicios", "Prov. insumos"]],
+      body: [[
+        provServ?.nombre_proveedor || "-",
+        provIns?.nombre_proveedor || "-",
+      ]],
+    });
+  }
 
-  y += 25;
+  y = doc.lastAutoTable.finalY + 8;
 
   (tratamientos || []).forEach((t, idx) => {
     const lotes = t.lotes || [];
@@ -148,7 +164,11 @@ export async function exportResumenAplicacionPDF({
     }
 
     doc.setFontSize(12);
-    doc.text(`Tratamiento ${idx + 1} — ${supTrat.toFixed(2)} ha`, marginX, y);
+    doc.text(mayusculaInicial(
+      `${nombreTrabajo || "Trabajo"} ${idx + 1} — ${supTrat.toFixed(2)} ha`),
+      marginX,
+      y
+    );
     y += 5;
 
     if ((t.observaciones || "").trim()) {
@@ -169,22 +189,26 @@ export async function exportResumenAplicacionPDF({
 
     y = doc.lastAutoTable.finalY + 4;
 
-    autoTable(doc, {
-      startY: y,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 2 },
-      margin: { left: marginX, right: marginX },
-      head: [["Insumo", "Dosis", "Unidad", "Total", "Unidad"]],
-      body: insumos.map((ins) => [
-        ins.nombre_insumo || "",
-        (Number.isFinite(parseFloat(ins.dosis)) ? fmt3(ins.dosis) : ""),
-        ins.unidad_dosis || "",
-        fmt2(ins.cantidad_total),
-        ins.unidad_total || "",
-      ]),
-    });
+    if (!esLabranza) {
+      autoTable(doc, {
+        startY: y,
+        theme: "grid",
+        styles: { fontSize: 8, cellPadding: 2 },
+        margin: { left: marginX, right: marginX },
+        head: [["Insumo", "Dosis", "Unidad", "Total", "Unidad"]],
+        body: insumos.map((ins) => [
+          ins.nombre_insumo || "",
+          Number.isFinite(parseFloat(ins.dosis)) ? fmt3(ins.dosis) : "",
+          ins.unidad_dosis || "",
+          fmt2(ins.cantidad_total),
+          ins.unidad_total || "",
+        ]),
+      });
 
-    y = doc.lastAutoTable.finalY + 8;
+      y = doc.lastAutoTable.finalY + 8;
+    } else {
+      y += 6;
+    }
   });
 
   if (y > 250) {
@@ -198,26 +222,27 @@ export async function exportResumenAplicacionPDF({
 
   doc.setFontSize(11);
   doc.text(
-    `Superficie total aplicada: ${superficieTotalAplicacion.toFixed(2)} ha`,
+    `Superficie total ${nombreTrabajo || "trabajada"}: ${superficieTotalAplicacion.toFixed(2)} ha`,
     marginX,
     y
   );
   y += 4;
 
-  autoTable(doc, {
-    startY: y + 2,
-    theme: "grid",
-    styles: { fontSize: 8, cellPadding: 2 },
-    margin: { left: marginX, right: marginX },
-    head: [["Insumo", "Cantidad total", "Unidad"]],
-    body: totalesPorInsumo.map((x) => [
-      x.nombre_insumo || "",
-      toNum(x.cantidad_total).toFixed(2),
-      x.unidad_total || "",
-    ]),
-  });
+  if (!esLabranza) {
+    autoTable(doc, {
+      startY: y + 2,
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2 },
+      margin: { left: marginX, right: marginX },
+      head: [["Insumo", "Cantidad total", "Unidad"]],
+      body: totalesPorInsumo.map((x) => [
+        x.nombre_insumo || "",
+        toNum(x.cantidad_total).toFixed(2),
+        x.unidad_total || "",
+      ]),
+    });
+  }
 
-  // --- Footer en todas las páginas ---
   const totalPages = doc.getNumberOfPages();
   const fechaEmision = formatFechaHora();
 
@@ -233,7 +258,7 @@ export async function exportResumenAplicacionPDF({
     doc.line(12, pageHeight - 15, pageWidth2 - 12, pageHeight - 15);
 
     doc.text(
-      "AgroRegistro - Registro de aplicaciones agrícolas",
+      "AgroRegistro - Registro de trabajos agrícolas",
       12,
       pageHeight - 10
     );
@@ -247,7 +272,7 @@ export async function exportResumenAplicacionPDF({
   }
 
   const fname =
-    nombreArchivo || `resumen_aplicacion_${fechaAplicacion || "sin_fecha"}.pdf`;
+    nombreArchivo || `resumen_trabajo_${fechaAplicacion || "sin_fecha"}.pdf`;
 
   doc.save(fname);
 }

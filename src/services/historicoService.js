@@ -10,6 +10,11 @@ export const formatFecha = (ymd) => {
     return `${d}/${m}/${y}`;
 };
 
+export const mayusculaInicial = (str) => {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 export const aplanarAplicaciones = (historico) => {
     const apps = historico?.aplicaciones ?? [];
     const out = [];
@@ -25,6 +30,7 @@ export const aplanarAplicaciones = (historico) => {
 
                 // (si querés que el histórico pueda filtrar sin “inyectar”)
                 orden_carga: app.orden_carga ?? "",
+                id_trabajo: app.id_trabajo ?? "",
                 tambo_aplicacion: app.tambo_aplicacion ?? "",
 
                 id_prov_serv: app.id_prov_serv,
@@ -60,10 +66,15 @@ export const filtrar = (registros, filtros) => {
             if (String(r.orden_carga ?? "") !== String(filtros.orden_carga ?? "")) return false;
         }
 
-        // ===== TAMBO (NUEVO) =====
+        // ===== TAMBO =====
         // El filtro viene como id_tambo, el dato real en el registro es tambo_aplicacion
         if (filtros.id_tambo !== "todos") {
             if (String(r.tambo_aplicacion ?? "") !== String(filtros.id_tambo ?? "")) return false;
+        }
+
+        // ===== TRABAJO =====
+        if (filtros.id_trabajo !== "todos") {
+            if (String(r.id_trabajo ?? "") !== String(filtros.id_trabajo ?? "")) return false;
         }
 
         // ===== PROVEEDORES =====

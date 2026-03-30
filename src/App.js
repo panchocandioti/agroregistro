@@ -17,6 +17,12 @@ function App() {
   const [historico, setHistorico] = useState({ version: 1, updated_at: "", aplicaciones: [] });
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
 
+  const trabajos = [
+    {id_trabajo: 53, tipo_trabajo: "pulverización"},
+    {id_trabajo: 67, tipo_trabajo: "siembra"},
+    {id_trabajo: 71, tipo_trabajo: "labranza"},
+  ]
+
   const handleCatalogosCargados = ({ lotes, insumos, proveedores, tambos }) => {
     setTambos(tambos);
     setLotes(lotes);
@@ -58,16 +64,22 @@ function App() {
       tambos.map((t) => [t.id_tambo, t])
     );
 
+    const trabajosIndex = new Map(
+      trabajos.map((t) => [t.id_trabajo, t])
+    )
+
     exportPendienteCargaPorAplicacionXlsx({
       aplicacion: aplicacionNueva,
       tambosIndex,
       lotesIndex,
       insumosIndex,
       proveedoresIndex,
+      trabajosIndex,
+      trabajos,
       nombreArchivo: `pendiente_${aplicacionNueva.fecha_aplicacion}_${aplicacionNueva.id_aplicacion}.xlsx`,
     });
     setTimeout(() => {
-      alert("Aplicación guardada ✅ Se descargaron histórico + pendiente de carga");
+      alert("Labor guardada ✅ Se descargaron histórico + pendiente de carga");
     }, 200);
   };
 
@@ -76,7 +88,7 @@ function App() {
   }
 
   const onBorrarAplicacion = (id_aplicacion) => {
-    const ok = window.confirm("¿Borrar esta aplicación del histórico? Esta acción no se puede deshacer.");
+    const ok = window.confirm("¿Borrar esta labor del histórico? Esta acción no se puede deshacer.");
     if (!ok) return;
 
     const aplicacionesPrev = Array.isArray(historico?.aplicaciones) ? historico.aplicaciones : [];
@@ -128,9 +140,15 @@ function App() {
       tambos.map((t) => [t.id_tambo, t])
     );
 
+    const trabajosIndex = new Map(
+      trabajos.map((t) => [t.id_trabajo, t])
+    )
+
     exportPendienteCargaPorAplicacionXlsx({
       aplicacion: aplicacionEditada,
+      trabajosIndex,
       tambosIndex,
+      trabajos,
       lotesIndex,
       insumosIndex,
       proveedoresIndex,
@@ -149,7 +167,7 @@ function App() {
       }}>
         <div style={{ alignContent: "center" }}>
           <h1>AgroRegistro</h1>
-          <p><i>Registro de aplicaciones agrícolas</i></p>
+          <p><i>Registro de trabajos agrícolas</i></p>
         </div>
         <div>
           <img src={logo} style={{ width: "110px", marginLeft: "20px" }} />
@@ -200,18 +218,20 @@ function App() {
             lotes={lotes}
             insumos={insumos}
             proveedores={proveedores}
+            trabajos={trabajos}
             onGuardarAplicacion={onGuardarAplicacion}
           />
         )}
       </div>)}
 
       <button onClick={handleMostrarHistorico} className="btn btn-info" id="historico">
-        {mostrarHistorico ? "Ocultar registro de aplicaciones" : "Consultar registro de aplicaciones"}
+        {mostrarHistorico ? "Ocultar registro de labores" : "Consultar registro de labores"}
       </button>
 
       {mostrarHistorico && (<HistoricoAplicaciones
         historico={historico}
         tambos={tambos}
+        trabajos={trabajos}
         lotes={lotes}
         proveedores={proveedores}
         insumos={insumos}
